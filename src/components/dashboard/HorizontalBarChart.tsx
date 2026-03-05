@@ -24,7 +24,7 @@ export function HorizontalBarChart({ bars, title, color = '#6366f1', suffix = ''
       <div className="text-xs font-bold text-slate-400 mb-3">{title}</div>
       <div className="space-y-2">
         {sorted.map((bar, i) => (
-          <div key={i} className="flex items-center gap-2.5">
+          <div key={`${bar.label}-${bar.value}`} className="flex items-center gap-2.5">
             <div className="w-[72px] sm:w-[90px] text-[11px] text-slate-400 text-right truncate flex-shrink-0">
               {bar.label}
             </div>
