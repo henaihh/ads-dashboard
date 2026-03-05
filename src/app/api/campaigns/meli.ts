@@ -85,6 +85,38 @@ export async function fetchMeliCampaigns() {
         // Daily breakdown not available, use single point
       }
 
+      // Get items (promoted products) in this campaign for bar charts
+      const adSets: { name: string; spent: number; conversions: number; roas: number; ctr: number }[] = [];
+      try {
+        const itemsRes = await fetch(
+          `${BASE}/advertising/advertisers/${advId}/product_ads/items?limit=5&offset=0&date_from=${dateFrom}&date_to=${dateTo}&metrics=${encodeURIComponent('clicks,prints,cost,total_amount,units_quantity')}&filters[campaign_id]=${camp.id}`,
+          {
+            headers: { Authorization: `Bearer ${token}`, 'api-version': '2' },
+            cache: 'no-store',
+          }
+        );
+        if (itemsRes.ok) {
+          const itemsData = await itemsRes.json();
+          for (const item of (itemsData.results || []).slice(0, 5)) {
+            const im = item.metrics || item.metrics_summary || {};
+            const iSpent = im.cost || 0;
+            const iClicks = im.clicks || 0;
+            const iPrints = im.prints || 0;
+            const iRevenue = im.total_amount || 0;
+            const iConv = im.units_quantity || 0;
+            if (iSpent > 0 || iClicks > 0) {
+              adSets.push({
+                name: item.title || item.item_id || `Item ${item.id}`,
+                spent: iSpent,
+                conversions: iConv,
+                roas: iSpent > 0 ? iRevenue / iSpent : 0,
+                ctr: iPrints > 0 ? (iClicks / iPrints) * 100 : 0,
+              });
+            }
+          }
+        }
+      } catch { /* items endpoint not available */ }
+
       campaigns.push({
         id: camp.id,
         platform: 'meli' as const,
@@ -105,7 +137,7 @@ export async function fetchMeliCampaigns() {
         costPerResult,
         trend,
         trendLabels,
-        adSets: [],
+        adSets,
       });
     }
 
