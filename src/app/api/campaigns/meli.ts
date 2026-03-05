@@ -1,134 +1,130 @@
+import { getMeliToken } from '@/lib/meli-auth';
+
 const BASE = 'https://api.mercadolibre.com';
+const METRICS = 'clicks,prints,ctr,cost,cpc,acos,roas,units_quantity,direct_amount,indirect_amount,total_amount';
+
+async function meliGet(path: string, token: string, extraHeaders?: Record<string, string>) {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { Authorization: `Bearer ${token}`, 'api-version': '2', ...extraHeaders },
+    cache: 'no-store',
+  });
+  return res.json();
+}
 
 export async function fetchMeliCampaigns(paramDateFrom?: string, paramDateTo?: string) {
-  const token = process.env.MELI_ACCESS_TOKEN;
-  if (!token) return [];
+  let token: string;
+  
+  try {
+    token = await getMeliToken();
+  } catch (error) {
+    console.error('MeLi auth failed in main campaigns:', error);
+    return [];
+  }
 
   try {
-    // 1. Get advertiser ID
-    const advRes = await fetch(`${BASE}/advertising/advertisers?product_id=PADS`, {
-      headers: { Authorization: `Bearer ${token}`, 'Api-Version': '1' },
-      cache: 'no-store',
-    });
-    const advData = await advRes.json();
-    const advertiser = advData.advertisers?.[0];
-    if (!advertiser) return [];
-
-    const advId = advertiser.advertiser_id;
-    const siteId = advertiser.site_id || 'MLA';
+    // 1. Get advertiser_id
+    const advData = await meliGet('/advertising/advertisers?product_id=PADS', token, { 'Api-Version': '1' });
+    const advertisers = advData.advertisers || [];
+    if (advertisers.length === 0) return [];
+    
+    const advertiser = advertisers[0];
+    const advertiserId = advertiser.advertiser_id;
 
     // 2. Get campaigns with metrics
     const today = new Date();
-    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const dateFrom = paramDateFrom || weekAgo.toISOString().split('T')[0];
+    const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const dateFrom = paramDateFrom || monthAgo.toISOString().split('T')[0];
     const dateTo = paramDateTo || today.toISOString().split('T')[0];
 
-    const campRes = await fetch(
-      `${BASE}/marketplace/advertising/${siteId}/advertisers/${advId}/product_ads/campaigns/search?limit=50&date_from=${dateFrom}&date_to=${dateTo}&metrics_summary=true&metrics=clicks,prints,cost,cpc,acos,direct_amount,indirect_amount,total_amount,units_quantity,direct_units_quantity,indirect_units_quantity`,
-      {
-        headers: { Authorization: `Bearer ${token}`, 'api-version': '2' },
-        cache: 'no-store',
-      }
+    const campsData = await meliGet(
+      `/advertising/advertisers/${advertiserId}/product_ads/campaigns?limit=50&offset=0&date_from=${dateFrom}&date_to=${dateTo}&metrics=${METRICS}&metrics_summary=true`,
+      token,
     );
-    const campData = await campRes.json();
-    const results = campData.results || [];
 
-    // 3. Get daily metrics for trends
+    const campaignList = campsData.results || [];
+
     const campaigns = [];
 
-    for (const camp of results) {
+    for (const camp of campaignList) {
       const m = camp.metrics || {};
       const spent = m.cost || 0;
       const impressions = m.prints || 0;
       const clicks = m.clicks || 0;
-      const revenue = m.total_amount || 0;
+      const revenue = (m.direct_amount || 0) + (m.indirect_amount || 0);
       const conversions = m.units_quantity || 0;
 
-      const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+      const ctr = m.ctr || (impressions > 0 ? (clicks / impressions) * 100 : 0);
       const cpc = m.cpc || (clicks > 0 ? spent / clicks : 0);
       const cpm = impressions > 0 ? (spent / impressions) * 1000 : 0;
-      const roas = spent > 0 ? revenue / spent : 0;
+      const roas = m.roas || (spent > 0 ? revenue / spent : 0);
       const costPerResult = conversions > 0 ? spent / conversions : 0;
 
-      // Try to get daily breakdown for trend
-      let trend = [roas];
-      let trendLabels = ['Hoy'];
+      // 3. Get daily metrics for trend
+      let trend: number[] = [roas];
+      let trendLabels: string[] = ['Hoy'];
       let dailyBreakdown: { date: string; spent: number; revenue: number; conversions: number; clicks: number; impressions: number }[] = [];
       try {
-        const dailyRes = await fetch(
-          `${BASE}/marketplace/advertising/${siteId}/advertisers/${advId}/product_ads/campaigns/search?campaign_id=${camp.id}&date_from=${dateFrom}&date_to=${dateTo}&metrics_summary=true&metrics=clicks,prints,cost,total_amount,units_quantity&granularity=day`,
-          {
-            headers: { Authorization: `Bearer ${token}`, 'api-version': '2' },
-            cache: 'no-store',
-          }
+        const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const dailyData = await meliGet(
+          `/advertising/product_ads/campaigns/${camp.id}?date_from=${weekAgo.toISOString().split('T')[0]}&date_to=${dateTo}&metrics=${METRICS}&aggregation_type=DAILY`,
+          token,
         );
-        if (dailyRes.ok) {
-          const dailyData = await dailyRes.json();
-          const daily = dailyData.results?.[0]?.daily_metrics || [];
-          if (daily.length > 0) {
-            const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-            trend = daily.map((d: any) => {
-              const dCost = d.cost || 0;
-              const dRev = d.total_amount || 0;
-              return dCost > 0 ? dRev / dCost : 0;
-            });
-            trendLabels = daily.map((d: any) => {
-              if (d.date) {
-                const date = new Date(d.date);
-                return dayNames[date.getDay()];
-              }
-              return '';
-            });
-            dailyBreakdown = daily.map((d: any) => ({
-              date: d.date || '',
-              spent: d.cost || 0,
-              revenue: d.total_amount || 0,
-              conversions: d.units_quantity || 0,
-              clicks: d.clicks || 0,
-              impressions: d.prints || 0,
-            }));
-          }
+        const dailyResults = Array.isArray(dailyData) ? dailyData : (dailyData.results || []);
+        if (dailyResults.length > 0) {
+          trend = dailyResults.map((d: any) => {
+            const dCost = d.cost || 0;
+            const dRev = (d.direct_amount || 0) + (d.indirect_amount || 0);
+            return dCost > 0 ? dRev / dCost : 0;
+          });
+          trendLabels = dailyResults.map((d: any) => {
+            if (d.date) {
+              const dt = new Date(d.date);
+              return ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][dt.getDay()];
+            }
+            return '';
+          });
+          dailyBreakdown = dailyResults.map((d: any) => ({
+            date: d.date || '',
+            spent: d.cost || 0,
+            revenue: (d.direct_amount || 0) + (d.indirect_amount || 0),
+            conversions: d.units_quantity || 0,
+            clicks: d.clicks || 0,
+            impressions: d.prints || 0,
+          }));
         }
-      } catch {
-        // Daily breakdown not available, use single point
-      }
+      } catch { /* trend stays as default */ }
 
-      // Get items (promoted products) in this campaign for bar charts
+      // 4. Get items (ads) in this campaign for bar charts
       const adSets: { name: string; spent: number; conversions: number; roas: number; ctr: number }[] = [];
       try {
-        const itemsRes = await fetch(
-          `${BASE}/advertising/advertisers/${advId}/product_ads/items?limit=5&offset=0&date_from=${dateFrom}&date_to=${dateTo}&metrics=${encodeURIComponent('clicks,prints,cost,total_amount,units_quantity')}&filters[campaign_id]=${camp.id}`,
-          {
-            headers: { Authorization: `Bearer ${token}`, 'api-version': '2' },
-            cache: 'no-store',
-          }
+        const itemsData = await meliGet(
+          `/advertising/advertisers/${advertiserId}/product_ads/items?limit=5&offset=0&date_from=${dateFrom}&date_to=${dateTo}&metrics=${METRICS}&filters[campaign_id]=${camp.id}`,
+          token,
         );
-        if (itemsRes.ok) {
-          const itemsData = await itemsRes.json();
-          for (const item of (itemsData.results || []).slice(0, 5)) {
-            const im = item.metrics || item.metrics_summary || {};
-            const iSpent = im.cost || 0;
-            const iClicks = im.clicks || 0;
-            const iPrints = im.prints || 0;
-            const iRevenue = im.total_amount || 0;
-            const iConv = im.units_quantity || 0;
-            if (iSpent > 0 || iClicks > 0) {
-              adSets.push({
-                name: item.title || item.item_id || `Item ${item.id}`,
-                spent: iSpent,
-                conversions: iConv,
-                roas: iSpent > 0 ? iRevenue / iSpent : 0,
-                ctr: iPrints > 0 ? (iClicks / iPrints) * 100 : 0,
-              });
-            }
+        const items = itemsData.results || [];
+        for (const item of items) {
+          const im = item.metrics || item.metrics_summary || {};
+          const iSpent = im.cost || 0;
+          const iClicks = im.clicks || 0;
+          const iImpressions = im.prints || 0;
+          const iRevenue = (im.direct_amount || 0) + (im.indirect_amount || 0);
+          const iConversions = im.units_quantity || 0;
+          if (iSpent > 0 || iClicks > 0) {
+            adSets.push({
+              name: item.title || item.item_id || `Item ${item.id}`,
+              spent: iSpent,
+              conversions: iConversions,
+              roas: iSpent > 0 ? iRevenue / iSpent : 0,
+              ctr: iImpressions > 0 ? (iClicks / iImpressions) * 100 : 0,
+            });
           }
         }
-      } catch { /* items endpoint not available */ }
+      } catch { /* adSets stays empty */ }
 
       campaigns.push({
         id: camp.id,
         platform: 'meli' as const,
-        name: camp.name,
+        name: camp.name || `Campaña ${camp.id}`,
         status: camp.status === 'active' ? 'active' : 'paused',
         budget: camp.budget || 0,
         spent,
