@@ -46,7 +46,7 @@ async function fetchMetaCampaigns() {
 
     // Get region breakdown
     const regionRes = await fetch(
-      `${META_BASE}/${adAccountId}/insights?fields=campaign_id,impressions,clicks,spend,region&date_preset=last_7d&level=campaign&breakdowns=region&limit=500&access_token=${token}`,
+      `${META_BASE}/${adAccountId}/insights?fields=campaign_id,impressions&date_preset=last_7d&level=campaign&breakdowns=region&limit=500&access_token=${token}`,
       { cache: 'no-store' }
     );
     const regionData = await regionRes.json();
