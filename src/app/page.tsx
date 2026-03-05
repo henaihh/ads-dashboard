@@ -35,6 +35,16 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<string>('');
   const [sources, setSources] = useState<any>({});
+  const [aiAnalysis, setAiAnalysis] = useState<{ analysis: string; date: string } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  useEffect(() => {
+    // Fetch AI daily analysis
+    fetch('/api/ai/daily-analysis')
+      .then(r => r.json())
+      .then(data => { if (data.analysis) setAiAnalysis(data); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch('/api/campaigns')
@@ -244,6 +254,72 @@ export default function Dashboard() {
                 </div>
               </div>
             ) : null}
+          </div>
+        )}
+
+        {/* AI Daily Analysis */}
+        {aiAnalysis && (
+          <div className="rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-indigo-950/40 to-slate-900/60 p-4 sm:p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-indigo-300 flex items-center gap-2">
+                🤖 Análisis AI del Día
+              </h2>
+              <span className="text-[10px] text-slate-500">
+                {aiAnalysis.date && new Date(aiAnalysis.date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </span>
+            </div>
+            <div className="text-[13px] leading-relaxed text-slate-300 whitespace-pre-wrap [&>*]:mb-2">
+              {aiAnalysis.analysis.split('\n').map((line, i) => {
+                // Style section headers
+                if (line.match(/^(📊|🚨|🚀|🎯|💡)/)) {
+                  return <div key={i} className="font-bold text-slate-200 mt-4 mb-1">{line}</div>;
+                }
+                if (line.match(/^🟢/)) return <div key={i} className="text-emerald-400">{line}</div>;
+                if (line.match(/^🟡/)) return <div key={i} className="text-amber-400">{line}</div>;
+                if (line.match(/^🔴/)) return <div key={i} className="text-red-400">{line}</div>;
+                if (line.match(/^\d+\./)) return <div key={i} className="ml-2 mb-1">{line}</div>;
+                return <div key={i}>{line}</div>;
+              })}
+            </div>
+            <button
+              onClick={async () => {
+                setAiLoading(true);
+                try {
+                  const res = await fetch('/api/ai/daily-analysis', { method: 'POST' });
+                  const data = await res.json();
+                  if (data.analysis) setAiAnalysis({ analysis: data.analysis, date: data.date });
+                } catch {}
+                setAiLoading(false);
+              }}
+              disabled={aiLoading}
+              className="mt-4 text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-50"
+            >
+              {aiLoading ? '⏳ Generando nuevo análisis...' : '🔄 Regenerar análisis'}
+            </button>
+          </div>
+        )}
+
+        {!aiAnalysis && (
+          <div className="rounded-2xl border border-slate-700/15 bg-slate-900/40 p-4 sm:p-6 mb-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-slate-400">🤖 Análisis AI del Día</h2>
+              <p className="text-xs text-slate-500 mt-1">Se genera automáticamente a las 6:00 AM</p>
+            </div>
+            <button
+              onClick={async () => {
+                setAiLoading(true);
+                try {
+                  const res = await fetch('/api/ai/daily-analysis', { method: 'POST' });
+                  const data = await res.json();
+                  if (data.analysis) setAiAnalysis({ analysis: data.analysis, date: data.date });
+                } catch {}
+                setAiLoading(false);
+              }}
+              disabled={aiLoading}
+              className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1.5 rounded-lg hover:bg-indigo-500/30 transition-colors disabled:opacity-50"
+            >
+              {aiLoading ? '⏳ Generando...' : '▶ Generar ahora'}
+            </button>
           </div>
         )}
 
