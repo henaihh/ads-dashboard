@@ -14,9 +14,18 @@ export interface DemographicSlice {
 }
 
 export interface Demographics {
-  gender?: DemographicSlice[];
-  age?: DemographicSlice[];
-  region?: DemographicSlice[];
+  gender?: {
+    impressions: DemographicSlice[];
+    conversions: DemographicSlice[];
+  };
+  age?: {
+    impressions: DemographicSlice[];
+    conversions: DemographicSlice[];
+  };
+  region?: {
+    impressions: DemographicSlice[];
+    conversions: DemographicSlice[];
+  };
 }
 
 export interface Campaign {
@@ -57,29 +66,58 @@ export const SAMPLE_CAMPAIGNS: Campaign[] = [
       { name: 'Retargeting', spent: 246, conversions: 20, roas: 5.85, ctr: 2.8 },
     ],
     demographics: {
-      gender: [
-        { label: 'Mujeres', value: 78500 },
-        { label: 'Hombres', value: 56200 },
-        { label: 'Desconocido', value: 7800 },
-      ],
-      age: [
-        { label: '18-24', value: 31200 },
-        { label: '25-34', value: 52100 },
-        { label: '35-44', value: 34800 },
-        { label: '45-54', value: 16200 },
-        { label: '55-64', value: 6100 },
-        { label: '65+', value: 2100 },
-      ],
-      region: [
-        { label: 'Buenos Aires', value: 48200 },
-        { label: 'CABA', value: 32100 },
-        { label: 'Córdoba', value: 18500 },
-        { label: 'Santa Fe', value: 14200 },
-        { label: 'Mendoza', value: 9800 },
-        { label: 'Tucumán', value: 6200 },
-        { label: 'Entre Ríos', value: 4800 },
-        { label: 'Otras', value: 8700 },
-      ],
+      gender: {
+        impressions: [
+          { label: 'Mujeres', value: 78500 },
+          { label: 'Hombres', value: 56200 },
+          { label: 'Desconocido', value: 7800 },
+        ],
+        conversions: [
+          { label: 'Mujeres', value: 52 },
+          { label: 'Hombres', value: 31 },
+          { label: 'Desconocido', value: 6 },
+        ],
+      },
+      age: {
+        impressions: [
+          { label: '18-24', value: 31200 },
+          { label: '25-34', value: 52100 },
+          { label: '35-44', value: 34800 },
+          { label: '45-54', value: 16200 },
+          { label: '55-64', value: 6100 },
+          { label: '65+', value: 2100 },
+        ],
+        conversions: [
+          { label: '18-24', value: 12 },
+          { label: '25-34', value: 38 },
+          { label: '35-44', value: 25 },
+          { label: '45-54', value: 11 },
+          { label: '55-64', value: 2 },
+          { label: '65+', value: 1 },
+        ],
+      },
+      region: {
+        impressions: [
+          { label: 'Buenos Aires', value: 48200 },
+          { label: 'CABA', value: 32100 },
+          { label: 'Córdoba', value: 18500 },
+          { label: 'Santa Fe', value: 14200 },
+          { label: 'Mendoza', value: 9800 },
+          { label: 'Tucumán', value: 6200 },
+          { label: 'Entre Ríos', value: 4800 },
+          { label: 'Otras', value: 8700 },
+        ],
+        conversions: [
+          { label: 'Buenos Aires', value: 29 },
+          { label: 'CABA', value: 21 },
+          { label: 'Córdoba', value: 12 },
+          { label: 'Santa Fe', value: 9 },
+          { label: 'Mendoza', value: 5 },
+          { label: 'Tucumán', value: 2 },
+          { label: 'Entre Ríos', value: 1 },
+          { label: 'Otras', value: 10 },
+        ],
+      },
     },
   },
   {
@@ -93,27 +131,54 @@ export const SAMPLE_CAMPAIGNS: Campaign[] = [
       { name: 'Audiencia Custom', spent: 222, conversions: 6, roas: 1.12, ctr: 1.3 },
     ],
     demographics: {
-      gender: [
-        { label: 'Hombres', value: 105000 },
-        { label: 'Mujeres', value: 92000 },
-        { label: 'Desconocido', value: 13000 },
-      ],
-      age: [
-        { label: '18-24', value: 62000 },
-        { label: '25-34', value: 74000 },
-        { label: '35-44', value: 38000 },
-        { label: '45-54', value: 21000 },
-        { label: '55-64', value: 10000 },
-        { label: '65+', value: 5000 },
-      ],
-      region: [
-        { label: 'Buenos Aires', value: 72000 },
-        { label: 'CABA', value: 51000 },
-        { label: 'Córdoba', value: 28000 },
-        { label: 'Santa Fe', value: 22000 },
-        { label: 'Mendoza', value: 15000 },
-        { label: 'Otras', value: 22000 },
-      ],
+      gender: {
+        impressions: [
+          { label: 'Hombres', value: 105000 },
+          { label: 'Mujeres', value: 92000 },
+          { label: 'Desconocido', value: 13000 },
+        ],
+        conversions: [
+          { label: 'Hombres', value: 7 },
+          { label: 'Mujeres', value: 4 },
+          { label: 'Desconocido', value: 1 },
+        ],
+      },
+      age: {
+        impressions: [
+          { label: '18-24', value: 62000 },
+          { label: '25-34', value: 74000 },
+          { label: '35-44', value: 38000 },
+          { label: '45-54', value: 21000 },
+          { label: '55-64', value: 10000 },
+          { label: '65+', value: 5000 },
+        ],
+        conversions: [
+          { label: '18-24', value: 2 },
+          { label: '25-34', value: 4 },
+          { label: '35-44', value: 3 },
+          { label: '45-54', value: 2 },
+          { label: '55-64', value: 1 },
+          { label: '65+', value: 0 },
+        ],
+      },
+      region: {
+        impressions: [
+          { label: 'Buenos Aires', value: 72000 },
+          { label: 'CABA', value: 51000 },
+          { label: 'Córdoba', value: 28000 },
+          { label: 'Santa Fe', value: 22000 },
+          { label: 'Mendoza', value: 15000 },
+          { label: 'Otras', value: 22000 },
+        ],
+        conversions: [
+          { label: 'Buenos Aires', value: 4 },
+          { label: 'CABA', value: 3 },
+          { label: 'Córdoba', value: 2 },
+          { label: 'Santa Fe', value: 1 },
+          { label: 'Mendoza', value: 1 },
+          { label: 'Otras', value: 1 },
+        ],
+      },
     },
   },
   {
@@ -127,27 +192,54 @@ export const SAMPLE_CAMPAIGNS: Campaign[] = [
       { name: 'Agregó al Carrito', spent: 167, conversions: 58, roas: 15.4, ctr: 4.3 },
     ],
     demographics: {
-      gender: [
-        { label: 'Mujeres', value: 24500 },
-        { label: 'Hombres', value: 17800 },
-        { label: 'Desconocido', value: 2700 },
-      ],
-      age: [
-        { label: '18-24', value: 5200 },
-        { label: '25-34', value: 16800 },
-        { label: '35-44', value: 12100 },
-        { label: '45-54', value: 7200 },
-        { label: '55-64', value: 2500 },
-        { label: '65+', value: 1200 },
-      ],
-      region: [
-        { label: 'Buenos Aires', value: 15800 },
-        { label: 'CABA', value: 11200 },
-        { label: 'Córdoba', value: 5900 },
-        { label: 'Santa Fe', value: 4100 },
-        { label: 'Mendoza', value: 3200 },
-        { label: 'Otras', value: 4800 },
-      ],
+      gender: {
+        impressions: [
+          { label: 'Mujeres', value: 24500 },
+          { label: 'Hombres', value: 17800 },
+          { label: 'Desconocido', value: 2700 },
+        ],
+        conversions: [
+          { label: 'Mujeres', value: 89 },
+          { label: 'Hombres', value: 58 },
+          { label: 'Desconocido', value: 9 },
+        ],
+      },
+      age: {
+        impressions: [
+          { label: '18-24', value: 5200 },
+          { label: '25-34', value: 16800 },
+          { label: '35-44', value: 12100 },
+          { label: '45-54', value: 7200 },
+          { label: '55-64', value: 2500 },
+          { label: '65+', value: 1200 },
+        ],
+        conversions: [
+          { label: '18-24', value: 18 },
+          { label: '25-34', value: 67 },
+          { label: '35-44', value: 44 },
+          { label: '45-54', value: 19 },
+          { label: '55-64', value: 6 },
+          { label: '65+', value: 2 },
+        ],
+      },
+      region: {
+        impressions: [
+          { label: 'Buenos Aires', value: 15800 },
+          { label: 'CABA', value: 11200 },
+          { label: 'Córdoba', value: 5900 },
+          { label: 'Santa Fe', value: 4100 },
+          { label: 'Mendoza', value: 3200 },
+          { label: 'Otras', value: 4800 },
+        ],
+        conversions: [
+          { label: 'Buenos Aires', value: 62 },
+          { label: 'CABA', value: 45 },
+          { label: 'Córdoba', value: 19 },
+          { label: 'Santa Fe', value: 14 },
+          { label: 'Mendoza', value: 9 },
+          { label: 'Otras', value: 7 },
+        ],
+      },
     },
   },
   {

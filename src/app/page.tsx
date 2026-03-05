@@ -75,6 +75,7 @@ export default function Dashboard() {
   const [dailyMetrics, setDailyMetrics] = useState<any[]>([]);
   const [showChangeModal, setShowChangeModal] = useState(false);
   const [campaignChanges, setCampaignChanges] = useState<any[]>([]);
+  const [demographicMode, setDemographicMode] = useState<'impressions' | 'conversions'>('impressions');
 
   const { dateFrom, dateTo } = getDateRange(datePreset, customFrom, customTo);
 
@@ -453,17 +454,32 @@ export default function Dashboard() {
             )}
 
             {/* Audience Segmentation */}
-            {detailCamp.demographics && (detailCamp.demographics.gender?.length || detailCamp.demographics.age?.length || detailCamp.demographics.region?.length) ? (
+            {detailCamp.demographics && (detailCamp.demographics.gender?.impressions?.length || detailCamp.demographics.age?.impressions?.length || detailCamp.demographics.region?.impressions?.length) ? (
               <div className="mt-5 pt-5 border-t border-slate-700/15">
-                <h4 className="text-sm font-bold text-slate-300 mb-4 flex items-center gap-2">
-                  🎯 Audiencia
-                </h4>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-sm font-bold text-slate-300 flex items-center gap-2">
+                    🎯 Audiencia
+                  </h4>
+                  <div className="flex items-center gap-1.5 bg-slate-900/60 border border-slate-700/20 rounded-lg p-0.5">
+                    {(['impressions', 'conversions'] as const).map(mode => (
+                      <button
+                        key={mode}
+                        onClick={() => setDemographicMode(mode)}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                          demographicMode === mode ? 'bg-indigo-500/20 text-indigo-300' : 'text-slate-500 hover:text-slate-300'
+                        }`}
+                      >
+                        {mode === 'impressions' ? 'Impresiones' : 'Conversiones'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="grid sm:grid-cols-3 gap-6">
                   {/* Gender donut */}
-                  {detailCamp.demographics.gender && detailCamp.demographics.gender.length > 0 && (
+                  {detailCamp.demographics.gender && detailCamp.demographics.gender[demographicMode]?.length > 0 && (
                     <DonutChart
-                      label="Género (Impresiones)"
-                      slices={detailCamp.demographics.gender.map(g => ({
+                      label={`Género (${demographicMode === 'impressions' ? 'Impresiones' : 'Conversiones'})`}
+                      slices={detailCamp.demographics.gender[demographicMode].map(g => ({
                         label: g.label,
                         value: g.value,
                         color: g.label === 'Hombres' ? '#6366f1' : g.label === 'Mujeres' ? '#ec4899' : '#64748b',
@@ -472,19 +488,19 @@ export default function Dashboard() {
                   )}
 
                   {/* Age bars */}
-                  {detailCamp.demographics.age && detailCamp.demographics.age.length > 0 && (
+                  {detailCamp.demographics.age && detailCamp.demographics.age[demographicMode]?.length > 0 && (
                     <HorizontalBarChart
-                      title="Edad (Impresiones)"
-                      bars={detailCamp.demographics.age.map(a => ({ label: a.label, value: a.value }))}
+                      title={`Edad (${demographicMode === 'impressions' ? 'Impresiones' : 'Conversiones'})`}
+                      bars={detailCamp.demographics.age[demographicMode].map(a => ({ label: a.label, value: a.value }))}
                       color="#8b5cf6"
                     />
                   )}
 
                   {/* Region bars */}
-                  {detailCamp.demographics.region && detailCamp.demographics.region.length > 0 && (
+                  {detailCamp.demographics.region && detailCamp.demographics.region[demographicMode]?.length > 0 && (
                     <HorizontalBarChart
-                      title="Región (Impresiones)"
-                      bars={detailCamp.demographics.region.map(r => ({ label: r.label, value: r.value }))}
+                      title={`Región (${demographicMode === 'impressions' ? 'Impresiones' : 'Conversiones'})`}
+                      bars={detailCamp.demographics.region[demographicMode].map(r => ({ label: r.label, value: r.value }))}
                       color="#06b6d4"
                       maxBars={6}
                     />
