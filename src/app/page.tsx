@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Campaign } from '@/lib/data';
 import { getSignal, SIGNAL_COLORS, getSignalLabel, Signal } from '@/lib/signals';
-import { getRecommendations, Recommendation } from '@/lib/recommendations';
+import { getDetailedRecommendations, CampaignRecommendation } from '@/lib/recommendations';
+import { AiChat } from '@/components/dashboard/AiChat';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { SignalDot } from '@/components/dashboard/SignalDot';
 import { Sparkline } from '@/components/dashboard/Sparkline';
@@ -138,7 +139,7 @@ export default function Dashboard() {
   const revenueChange = comp ? pctChange(totalRevenue, comp.previous.totalRevenue) : null;
   const convChange = comp ? pctChange(totalConversions, comp.previous.totalConversions) : null;
 
-  const recommendations = getRecommendations(filtered);
+  const recommendations = getDetailedRecommendations(filtered);
   const detailCamp = selectedId !== null ? campaigns.find(c => c.id === selectedId) : null;
 
   return (
@@ -548,19 +549,73 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Recommendations */}
+        {/* Recommendations - Grouped by Campaign */}
         <div className="rounded-2xl border border-slate-700/15 bg-slate-900/60 p-4 sm:p-6 mb-6">
           <h2 className="text-sm font-bold text-slate-300 mb-4">🎯 Plan de Acción — Qué Hacer Ahora</h2>
-          <div className="space-y-2.5">
-            {recommendations.map((r, i) => (
-              <div
-                key={i}
-                className={`flex gap-3 items-start rounded-xl border px-4 py-3 ${SIGNAL_COLORS[r.type].pill} border-current/10`}
-              >
-                <span className="text-lg flex-shrink-0">{r.icon}</span>
-                <span className="text-[13px] leading-relaxed text-slate-300">{r.text}</span>
-              </div>
-            ))}
+          <div className="space-y-4">
+            {(() => {
+              // Group recommendations by campaign
+              const grouped = new Map<number, CampaignRecommendation[]>();
+              recommendations.forEach(r => {
+                const list = grouped.get(r.campaignId) || [];
+                list.push(r);
+                grouped.set(r.campaignId, list);
+              });
+              // Sort groups: campaigns with red signals first
+              const sortedGroups = [...grouped.entries()].sort((a, b) => {
+                const aWorst = Math.min(...a[1].map(r => r.signal === 'red' ? 0 : r.signal === 'yellow' ? 1 : 2));
+                const bWorst = Math.min(...b[1].map(r => r.signal === 'red' ? 0 : r.signal === 'yellow' ? 1 : 2));
+                return aWorst - bWorst;
+              });
+              return sortedGroups.map(([campId, recs]) => (
+                <div key={campId} className="rounded-xl border border-slate-700/10 bg-slate-800/30 overflow-hidden">
+                  {/* Campaign header */}
+                  <div className="px-4 py-2.5 bg-slate-800/50 border-b border-slate-700/10 flex items-center gap-2">
+                    <SignalDot color={recs[0].signal} size={10} />
+                    <span className="text-sm font-bold text-slate-200">{recs[0].campaignName}</span>
+                    <span className="text-[10px] text-slate-500 ml-auto">{recs[0].platform}</span>
+                  </div>
+                  {/* Issues */}
+                  <div className="p-3 space-y-3">
+                    {recs.map((r, i) => (
+                      <div key={i} className={`rounded-lg border px-3.5 py-3 ${SIGNAL_COLORS[r.signal].pill} border-current/10`}>
+                        {/* Issue title with metric badge */}
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-700/50 text-slate-300 flex-shrink-0">
+                              {r.metric}
+                            </span>
+                            <span className="text-xs font-semibold text-slate-300 truncate">
+                              {r.metricValue} <span className="text-slate-500 font-normal">(obj: {r.metricTarget})</span>
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => (window as any).__openAiChat?.(r.chatPrompt, r.campaignContext)}
+                            className="flex-shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 transition-colors"
+                            title="Analizar con AI"
+                          >
+                            💬 Analizar
+                          </button>
+                        </div>
+                        {/* Title */}
+                        <div className="text-[13px] font-medium text-slate-300 mb-2">{r.title}</div>
+                        {/* Action items */}
+                        <div className="space-y-1.5">
+                          {r.actions.map((action, j) => (
+                            <div key={j} className="flex items-start gap-2 text-xs text-slate-400">
+                              <span className={`flex-shrink-0 mt-0.5 w-1.5 h-1.5 rounded-full ${
+                                action.priority === 'high' ? 'bg-red-400' : action.priority === 'medium' ? 'bg-amber-400' : 'bg-slate-500'
+                              }`} />
+                              <span>{action.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()}
           </div>
         </div>
 
@@ -579,6 +634,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      <AiChat dateRange={`${dateFrom} — ${dateTo}`} />
     </div>
   );
 }
