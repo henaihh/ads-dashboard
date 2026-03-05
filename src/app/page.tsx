@@ -24,14 +24,22 @@ function getDateRange(preset: DatePreset, customFrom?: string, customTo?: string
   return { dateFrom: from.toISOString().split('T')[0], dateTo: today.toISOString().split('T')[0] };
 }
 
-function formatCurrency(val: number, platform: string, currencyMode: 'ARS' | 'USD' = 'ARS', blueRate: number = 1300) {
-  if (platform === 'meli') return `$${val.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+function formatNumber(num: number): string {
+  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
+  if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
+  return num.toFixed(0);
+}
+
+function formatCurrency(val: number, platform: string, currencyMode: 'ARS' | 'USD' = 'ARS', blueRate: number = 1300, abbreviated = false) {
+  if (platform === 'meli') {
+    return abbreviated ? `$${formatNumber(val)}` : `$${val.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+  }
   // Meta values are in USD
   if (currencyMode === 'ARS') {
     const arsVal = val * blueRate;
-    return `$${arsVal.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+    return abbreviated ? `$${formatNumber(arsVal)}` : `$${arsVal.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
   }
-  return `US$${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  return abbreviated ? `US$${formatNumber(val)}` : `US$${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
 /* ─── Glossary ─── */
@@ -258,9 +266,9 @@ export default function Dashboard() {
           {([
             { key: 'roas', label: 'ROAS Total', value: avgRoas.toFixed(2), suffix: 'x', signal: getSignal(avgRoas, 'roas', platform), change: roasChange },
             { key: 'ctr', label: 'CTR Prom.', value: avgCTR.toFixed(1), suffix: '%', signal: getSignal(avgCTR, 'ctr', platform), change: ctrChange },
-            { key: 'cpc', label: 'CPC Prom.', value: isMeli ? avgCPC.toFixed(0) : (currencyMode === 'ARS' ? (avgCPC * blueRate).toFixed(0) : avgCPC.toFixed(3)), suffix: ` ${currency}`, signal: getSignal(avgCPC, 'cpc', platform), change: cpcChange },
-            { key: 'spent', label: 'Gastado', value: formatCurrency(totalSpent, platform, currencyMode, blueRate), suffix: '', signal: 'gray' as Signal, change: spentChange },
-            { key: 'revenue', label: 'Ingresos', value: formatCurrency(totalRevenue, platform, currencyMode, blueRate), suffix: '', signal: (avgRoas >= 2 ? 'green' : avgRoas >= 1 ? 'yellow' : 'red') as Signal, change: revenueChange },
+            { key: 'cpc', label: 'CPC Prom.', value: formatCurrency(avgCPC, platform, currencyMode, blueRate, true).replace('$', ''), suffix: ` ${currency}`, signal: getSignal(avgCPC, 'cpc', platform), change: cpcChange },
+            { key: 'spent', label: 'Gastado', value: formatCurrency(totalSpent, platform, currencyMode, blueRate, true), suffix: '', signal: 'gray' as Signal, change: spentChange },
+            { key: 'revenue', label: 'Ingresos', value: formatCurrency(totalRevenue, platform, currencyMode, blueRate, true), suffix: '', signal: (avgRoas >= 2 ? 'green' : avgRoas >= 1 ? 'yellow' : 'red') as Signal, change: revenueChange },
             { key: 'conversions', label: 'Conversiones', value: totalConversions.toString(), suffix: '', signal: 'gray' as Signal, change: convChange },
           ] as const).map(kpi => (
             <button key={kpi.key} onClick={() => setExpandedKpi(expandedKpi === kpi.key ? null : kpi.key)} className={`text-left transition-all rounded-xl ${expandedKpi === kpi.key ? 'ring-2 ring-indigo-500/40' : ''}`}>
@@ -338,7 +346,7 @@ export default function Dashboard() {
                     <div className="text-right hidden sm:block">
                       <div className="text-[10px] text-slate-500">Gastado</div>
                       <div className="text-xs font-semibold text-slate-300">
-                        {formatCurrency(c.spent, c.platform, currencyMode, blueRate)}
+                        {formatCurrency(c.spent, c.platform, currencyMode, blueRate, true)}
                       </div>
                     </div>
                     <div className="text-right hidden sm:block">
@@ -371,7 +379,7 @@ export default function Dashboard() {
                 { key: 'ctr', label: 'CTR', value: detailCamp.ctr.toFixed(1), suffix: '%', signal: getSignal(detailCamp.ctr, 'ctr', detailCamp.platform) },
                 { key: 'cpc', label: 'CPC', value: detailCamp.platform === 'meli' ? detailCamp.cpc.toFixed(0) : detailCamp.cpc.toFixed(3), suffix: ` ${detailCamp.platform === 'meli' ? 'ARS' : 'USD'}`, signal: getSignal(detailCamp.cpc, 'cpc', detailCamp.platform) },
                 { key: 'cpm', label: 'CPM', value: detailCamp.cpm.toFixed(2), suffix: '', signal: getSignal(detailCamp.cpm, 'cpm', detailCamp.platform) },
-                { key: 'spent', label: 'Gastado', value: formatCurrency(detailCamp.spent, detailCamp.platform, currencyMode, blueRate), suffix: '', signal: 'gray' as Signal },
+                { key: 'spent', label: 'Gastado', value: formatCurrency(detailCamp.spent, detailCamp.platform, currencyMode, blueRate, true), suffix: '', signal: 'gray' as Signal },
                 { key: 'conversions', label: 'Conv.', value: detailCamp.conversions.toString(), suffix: '', signal: 'gray' as Signal },
               ] as const).map(kpi => (
                 <div
