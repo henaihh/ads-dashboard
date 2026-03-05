@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { SAMPLE_CAMPAIGNS, Campaign, Platform } from '@/lib/data';
+import { useState, useEffect } from 'react';
+import { Campaign } from '@/lib/data';
 import { getSignal, SIGNAL_COLORS, getSignalLabel, Signal } from '@/lib/signals';
 import { getRecommendations, Recommendation } from '@/lib/recommendations';
 import { MetricCard } from '@/components/dashboard/MetricCard';
@@ -29,10 +29,26 @@ const GLOSSARY = [
 export default function Dashboard() {
   const [tab, setTab] = useState<Tab>('all');
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updatedAt, setUpdatedAt] = useState<string>('');
+  const [sources, setSources] = useState<any>({});
+
+  useEffect(() => {
+    fetch('/api/campaigns')
+      .then(r => r.json())
+      .then(data => {
+        setCampaigns(data.campaigns || []);
+        setUpdatedAt(data.updatedAt || '');
+        setSources(data.sources || {});
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
   const filtered = tab === 'all'
-    ? SAMPLE_CAMPAIGNS
-    : SAMPLE_CAMPAIGNS.filter(c => c.platform === tab);
+    ? campaigns
+    : campaigns.filter(c => c.platform === tab);
 
   const totalSpent = filtered.reduce((s, c) => s + c.spent, 0);
   const totalRevenue = filtered.reduce((s, c) => s + c.revenue, 0);
@@ -46,7 +62,7 @@ export default function Dashboard() {
   const currency = isMeli ? 'ARS' : 'USD';
 
   const recommendations = getRecommendations(filtered);
-  const detailCamp = selectedId !== null ? SAMPLE_CAMPAIGNS.find(c => c.id === selectedId) : null;
+  const detailCamp = selectedId !== null ? campaigns.find(c => c.id === selectedId) : null;
 
   return (
     <div className="relative min-h-screen">
@@ -58,7 +74,15 @@ export default function Dashboard() {
               📊 Ads Command Center
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Performance en tiempo real · Señales de semáforo · Recomendaciones AI
+              {loading ? 'Cargando datos...' : (
+                <>
+                  {sources.meta?.connected && <span className="text-emerald-400">Meta ✓</span>}
+                  {sources.meta?.connected && sources.meli?.connected && ' · '}
+                  {sources.meli?.connected && <span className="text-emerald-400">MeLi ✓</span>}
+                  {!sources.meta?.connected && !sources.meli?.connected && 'Sin conexión a plataformas'}
+                  {updatedAt && <span className="text-slate-600"> · {new Date(updatedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</span>}
+                </>
+              )}
             </p>
           </div>
 
