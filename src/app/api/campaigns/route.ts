@@ -175,25 +175,17 @@ async function fetchMetaCampaigns() {
 
 // MeLi campaigns imported from separate file
 import { fetchMeliCampaigns } from './meli';
-import { SAMPLE_CAMPAIGNS } from '@/lib/data';
-
 export async function GET() {
   const [meta, meli] = await Promise.all([
     fetchMetaCampaigns(),
     fetchMeliCampaigns(),
   ]);
 
-  const allCampaigns = [...meta, ...meli];
-
-  // Fallback to sample data if no real APIs are connected
-  const useSample = allCampaigns.length === 0;
-
   return NextResponse.json({
-    campaigns: useSample ? SAMPLE_CAMPAIGNS : allCampaigns,
+    campaigns: [...meta, ...meli],
     sources: {
       meta: { count: meta.length, connected: !!process.env.META_ACCESS_TOKEN },
       meli: { count: meli.length, connected: !!process.env.MELI_ACCESS_TOKEN },
-      sample: useSample,
     },
     updatedAt: new Date().toISOString(),
   });
