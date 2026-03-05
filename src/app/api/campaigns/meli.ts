@@ -53,9 +53,10 @@ export async function fetchMeliCampaigns(paramDateFrom?: string, paramDateTo?: s
       // Try to get daily breakdown for trend
       let trend = [roas];
       let trendLabels = ['Hoy'];
+      let dailyBreakdown: { date: string; spent: number; revenue: number; conversions: number; clicks: number; impressions: number }[] = [];
       try {
         const dailyRes = await fetch(
-          `${BASE}/marketplace/advertising/${siteId}/advertisers/${advId}/product_ads/campaigns/search?campaign_id=${camp.id}&date_from=${dateFrom}&date_to=${dateTo}&metrics_summary=true&metrics=clicks,prints,cost,total_amount&granularity=day`,
+          `${BASE}/marketplace/advertising/${siteId}/advertisers/${advId}/product_ads/campaigns/search?campaign_id=${camp.id}&date_from=${dateFrom}&date_to=${dateTo}&metrics_summary=true&metrics=clicks,prints,cost,total_amount,units_quantity&granularity=day`,
           {
             headers: { Authorization: `Bearer ${token}`, 'api-version': '2' },
             cache: 'no-store',
@@ -63,7 +64,6 @@ export async function fetchMeliCampaigns(paramDateFrom?: string, paramDateTo?: s
         );
         if (dailyRes.ok) {
           const dailyData = await dailyRes.json();
-          // Process daily data if available
           const daily = dailyData.results?.[0]?.daily_metrics || [];
           if (daily.length > 0) {
             const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -79,6 +79,14 @@ export async function fetchMeliCampaigns(paramDateFrom?: string, paramDateTo?: s
               }
               return '';
             });
+            dailyBreakdown = daily.map((d: any) => ({
+              date: d.date || '',
+              spent: d.cost || 0,
+              revenue: d.total_amount || 0,
+              conversions: d.units_quantity || 0,
+              clicks: d.clicks || 0,
+              impressions: d.prints || 0,
+            }));
           }
         }
       } catch {
@@ -138,6 +146,7 @@ export async function fetchMeliCampaigns(paramDateFrom?: string, paramDateTo?: s
         trend,
         trendLabels,
         adSets,
+        dailyBreakdown,
       });
     }
 

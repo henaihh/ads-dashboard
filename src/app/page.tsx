@@ -10,6 +10,7 @@ import { Sparkline } from '@/components/dashboard/Sparkline';
 import { BarChart } from '@/components/dashboard/BarChart';
 import { DonutChart } from '@/components/dashboard/DonutChart';
 import { HorizontalBarChart } from '@/components/dashboard/HorizontalBarChart';
+import { LineChart } from '@/components/dashboard/LineChart';
 
 type Tab = 'all' | 'meta' | 'meli';
 type DatePreset = '7d' | '14d' | '30d' | '90d' | 'custom';
@@ -57,6 +58,8 @@ export default function Dashboard() {
   const [showCustomRange, setShowCustomRange] = useState(false);
   const [currencyMode, setCurrencyMode] = useState<'ARS' | 'USD'>('ARS');
   const [blueRate, setBlueRate] = useState<number>(1300);
+  const [expandedKpi, setExpandedKpi] = useState<string | null>(null);
+  const [dailyMetrics, setDailyMetrics] = useState<any[]>([]);
 
   const { dateFrom, dateTo } = getDateRange(datePreset, customFrom, customTo);
 
@@ -86,6 +89,7 @@ export default function Dashboard() {
         setComparison(data.comparison || null);
         setComparisonMeta(data.comparisonMeta || null);
         setComparisonMeli(data.comparisonMeli || null);
+        setDailyMetrics(data.dailyMetrics || []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -228,15 +232,52 @@ export default function Dashboard() {
           </span>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3 mb-6">
-          <MetricCard label="ROAS Total" value={avgRoas.toFixed(2)} suffix="x" signal={getSignal(avgRoas, 'roas', platform)} change={roasChange} />
-          <MetricCard label="CTR Prom." value={avgCTR.toFixed(1)} suffix="%" signal={getSignal(avgCTR, 'ctr', platform)} change={ctrChange} />
-          <MetricCard label="CPC Prom." value={isMeli ? avgCPC.toFixed(0) : (currencyMode === 'ARS' ? (avgCPC * blueRate).toFixed(0) : avgCPC.toFixed(3))} suffix={` ${currency}`} signal={getSignal(avgCPC, 'cpc', platform)} change={cpcChange} />
-          <MetricCard label="Gastado" value={formatCurrency(totalSpent, platform, currencyMode, blueRate)} signal="gray" change={spentChange} />
-          <MetricCard label="Ingresos" value={formatCurrency(totalRevenue, platform, currencyMode, blueRate)} signal={avgRoas >= 2 ? 'green' : avgRoas >= 1 ? 'yellow' : 'red'} change={revenueChange} />
-          <MetricCard label="Conversiones" value={totalConversions.toString()} signal="gray" change={convChange} />
+        {/* KPI Cards (clickable) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3 mb-2">
+          {([
+            { key: 'roas', label: 'ROAS Total', value: avgRoas.toFixed(2), suffix: 'x', signal: getSignal(avgRoas, 'roas', platform), change: roasChange },
+            { key: 'ctr', label: 'CTR Prom.', value: avgCTR.toFixed(1), suffix: '%', signal: getSignal(avgCTR, 'ctr', platform), change: ctrChange },
+            { key: 'cpc', label: 'CPC Prom.', value: isMeli ? avgCPC.toFixed(0) : (currencyMode === 'ARS' ? (avgCPC * blueRate).toFixed(0) : avgCPC.toFixed(3)), suffix: ` ${currency}`, signal: getSignal(avgCPC, 'cpc', platform), change: cpcChange },
+            { key: 'spent', label: 'Gastado', value: formatCurrency(totalSpent, platform, currencyMode, blueRate), suffix: '', signal: 'gray' as Signal, change: spentChange },
+            { key: 'revenue', label: 'Ingresos', value: formatCurrency(totalRevenue, platform, currencyMode, blueRate), suffix: '', signal: (avgRoas >= 2 ? 'green' : avgRoas >= 1 ? 'yellow' : 'red') as Signal, change: revenueChange },
+            { key: 'conversions', label: 'Conversiones', value: totalConversions.toString(), suffix: '', signal: 'gray' as Signal, change: convChange },
+          ] as const).map(kpi => (
+            <button key={kpi.key} onClick={() => setExpandedKpi(expandedKpi === kpi.key ? null : kpi.key)} className={`text-left transition-all rounded-xl ${expandedKpi === kpi.key ? 'ring-2 ring-indigo-500/40' : ''}`}>
+              <MetricCard label={kpi.label} value={kpi.value} suffix={kpi.suffix} signal={kpi.signal} change={kpi.change} />
+            </button>
+          ))}
         </div>
+
+        {/* Expanded KPI Chart */}
+        {expandedKpi && dailyMetrics.length > 0 && (
+          <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-300">
+            <LineChart
+              title={{
+                roas: '📈 ROAS Diario',
+                ctr: '📈 CTR Diario (%)',
+                cpc: '📈 CPC Diario',
+                spent: '📈 Gasto Diario',
+                revenue: '📈 Ingresos Diarios',
+                conversions: '📈 Conversiones Diarias',
+              }[expandedKpi] || ''}
+              data={dailyMetrics.map(d => ({
+                label: d.date?.slice(5) || '',
+                value: expandedKpi === 'roas' ? d.roas
+                  : expandedKpi === 'ctr' ? d.ctr
+                  : expandedKpi === 'cpc' ? d.cpc
+                  : expandedKpi === 'spent' ? d.spent
+                  : expandedKpi === 'revenue' ? d.revenue
+                  : d.conversions,
+              }))}
+              formatValue={expandedKpi === 'roas' ? (v => v.toFixed(2) + 'x')
+                : expandedKpi === 'ctr' ? (v => v.toFixed(1) + '%')
+                : expandedKpi === 'conversions' ? (v => Math.round(v).toString())
+                : (v => '$' + v.toLocaleString('es-AR', { maximumFractionDigits: 0 }))}
+              color={expandedKpi === 'roas' ? '#6366f1' : expandedKpi === 'revenue' ? '#10b981' : expandedKpi === 'spent' ? '#f59e0b' : '#8b5cf6'}
+            />
+          </div>
+        )}
+        {!expandedKpi && <div className="mb-4" />}
 
         {/* Campaign List */}
         <div className="mb-6">

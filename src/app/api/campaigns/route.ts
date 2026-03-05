@@ -106,6 +106,18 @@ async function fetchMetaCampaigns(dateFrom?: string, dateTo?: string) {
         return dayNames[date.getDay()];
       });
 
+      // Daily breakdown for charts
+      const dailyBreakdown = dailyInsights.map((d: any) => {
+        const dSpend = parseFloat(d.spend || '0');
+        const dImpressions = parseInt(d.impressions || '0');
+        const dClicks = parseInt(d.clicks || '0');
+        const dPurchase = findAction(d.actions, purchaseTypes);
+        const dRevVal = findAction(d.action_values, purchaseTypes);
+        const dConv = parseInt(dPurchase?.value || '0');
+        const dRev = parseFloat(dRevVal?.value || '0');
+        return { date: d.date_start, spent: dSpend, revenue: dRev, conversions: dConv, clicks: dClicks, impressions: dImpressions };
+      });
+
       // Adsets
       const adsets = (adsetData.data || [])
         .filter((a: any) => a.campaign_id === camp.id)
@@ -175,6 +187,7 @@ async function fetchMetaCampaigns(dateFrom?: string, dateTo?: string) {
         trendLabels: trendLabels.length > 0 ? trendLabels : ['Hoy'],
         adSets: adsets,
         demographics,
+        dailyBreakdown,
       };
     }).filter(Boolean);
   } catch (err) {
@@ -235,8 +248,38 @@ export async function GET(request: Request) {
   const currentMeli = computeAggregates(meli);
   const prevMeliAgg = computeAggregates(prevMeli);
 
+  // Aggregate daily metrics across all campaigns
+  // Meta daily data is already fetched with time_increment=1
+  // We'll build dailyMetrics from campaign trend data
+  // For a proper implementation, we aggregate from raw daily API data
+  // For now, we return aggregate dailyMetrics from the campaigns' daily breakdowns
+  const dailyMetricsMap: Record<string, { date: string; spent: number; revenue: number; conversions: number; clicks: number; impressions: number }> = {};
+  for (const c of all) {
+    if (c.dailyBreakdown) {
+      for (const d of c.dailyBreakdown) {
+        if (!dailyMetricsMap[d.date]) {
+          dailyMetricsMap[d.date] = { date: d.date, spent: 0, revenue: 0, conversions: 0, clicks: 0, impressions: 0 };
+        }
+        dailyMetricsMap[d.date].spent += d.spent || 0;
+        dailyMetricsMap[d.date].revenue += d.revenue || 0;
+        dailyMetricsMap[d.date].conversions += d.conversions || 0;
+        dailyMetricsMap[d.date].clicks += d.clicks || 0;
+        dailyMetricsMap[d.date].impressions += d.impressions || 0;
+      }
+    }
+  }
+  const dailyMetrics = Object.values(dailyMetricsMap)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(d => ({
+      ...d,
+      roas: d.spent > 0 ? d.revenue / d.spent : 0,
+      ctr: d.impressions > 0 ? (d.clicks / d.impressions) * 100 : 0,
+      cpc: d.clicks > 0 ? d.spent / d.clicks : 0,
+    }));
+
   return NextResponse.json({
     campaigns: all,
+    dailyMetrics,
     comparison: { current, previous },
     comparisonMeta: { current: currentMeta, previous: prevMetaAgg },
     comparisonMeli: { current: currentMeli, previous: prevMeliAgg },
