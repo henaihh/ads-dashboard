@@ -264,15 +264,15 @@ export default function Dashboard() {
         {loading && !initialLoad && <LoadingOverlay />}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3 mb-2">
           {([
-            { key: 'roas', label: 'ROAS Total', value: avgRoas.toFixed(2), suffix: 'x', signal: getSignal(avgRoas, 'roas', platform), change: roasChange },
-            { key: 'ctr', label: 'CTR Prom.', value: avgCTR.toFixed(1), suffix: '%', signal: getSignal(avgCTR, 'ctr', platform), change: ctrChange },
-            { key: 'cpc', label: 'CPC Prom.', value: formatCurrency(avgCPC, platform, currencyMode, blueRate, true).replace('$', ''), suffix: ` ${currency}`, signal: getSignal(avgCPC, 'cpc', platform), change: cpcChange },
-            { key: 'spent', label: 'Gastado', value: formatCurrency(totalSpent, platform, currencyMode, blueRate, true), suffix: '', signal: 'gray' as Signal, change: spentChange },
-            { key: 'revenue', label: 'Ingresos', value: formatCurrency(totalRevenue, platform, currencyMode, blueRate, true), suffix: '', signal: (avgRoas >= 2 ? 'green' : avgRoas >= 1 ? 'yellow' : 'red') as Signal, change: revenueChange },
-            { key: 'conversions', label: 'Conversiones', value: totalConversions.toString(), suffix: '', signal: 'gray' as Signal, change: convChange },
+            { key: 'roas', label: 'ROAS Total', value: avgRoas.toFixed(2), suffix: 'x', signal: getSignal(avgRoas, 'roas', platform), change: roasChange, fullValue: undefined },
+            { key: 'ctr', label: 'CTR Prom.', value: avgCTR.toFixed(1), suffix: '%', signal: getSignal(avgCTR, 'ctr', platform), change: ctrChange, fullValue: undefined },
+            { key: 'cpc', label: 'CPC Prom.', value: formatCurrency(avgCPC, platform, currencyMode, blueRate, true).replace('$', ''), suffix: ` ${currency}`, signal: getSignal(avgCPC, 'cpc', platform), change: cpcChange, fullValue: formatCurrency(avgCPC, platform, currencyMode, blueRate, false) },
+            { key: 'spent', label: 'Gastado', value: formatCurrency(totalSpent, platform, currencyMode, blueRate, true), suffix: '', signal: 'gray' as Signal, change: spentChange, fullValue: formatCurrency(totalSpent, platform, currencyMode, blueRate, false) },
+            { key: 'revenue', label: 'Ingresos', value: formatCurrency(totalRevenue, platform, currencyMode, blueRate, true), suffix: '', signal: (avgRoas >= 2 ? 'green' : avgRoas >= 1 ? 'yellow' : 'red') as Signal, change: revenueChange, fullValue: formatCurrency(totalRevenue, platform, currencyMode, blueRate, false) },
+            { key: 'conversions', label: 'Conversiones', value: totalConversions.toString(), suffix: '', signal: 'gray' as Signal, change: convChange, fullValue: undefined },
           ] as const).map(kpi => (
             <button key={kpi.key} onClick={() => setExpandedKpi(expandedKpi === kpi.key ? null : kpi.key)} className={`text-left transition-all rounded-xl ${expandedKpi === kpi.key ? 'ring-2 ring-indigo-500/40' : ''}`}>
-              <MetricCard label={kpi.label} value={kpi.value} suffix={kpi.suffix} signal={kpi.signal} change={kpi.change} />
+              <MetricCard label={kpi.label} value={kpi.value} suffix={kpi.suffix} signal={kpi.signal} change={kpi.change} fullValue={kpi.fullValue} />
             </button>
           ))}
         </div>
@@ -375,19 +375,19 @@ export default function Dashboard() {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-2">
               {([
-                { key: 'roas', label: 'ROAS', value: detailCamp.roas.toFixed(2), suffix: 'x', signal: getSignal(detailCamp.roas, 'roas', detailCamp.platform), spark: detailCamp.trend },
-                { key: 'ctr', label: 'CTR', value: detailCamp.ctr.toFixed(1), suffix: '%', signal: getSignal(detailCamp.ctr, 'ctr', detailCamp.platform) },
-                { key: 'cpc', label: 'CPC', value: detailCamp.platform === 'meli' ? detailCamp.cpc.toFixed(0) : detailCamp.cpc.toFixed(3), suffix: ` ${detailCamp.platform === 'meli' ? 'ARS' : 'USD'}`, signal: getSignal(detailCamp.cpc, 'cpc', detailCamp.platform) },
-                { key: 'cpm', label: 'CPM', value: detailCamp.cpm.toFixed(2), suffix: '', signal: getSignal(detailCamp.cpm, 'cpm', detailCamp.platform) },
-                { key: 'spent', label: 'Gastado', value: formatCurrency(detailCamp.spent, detailCamp.platform, currencyMode, blueRate, true), suffix: '', signal: 'gray' as Signal },
-                { key: 'conversions', label: 'Conv.', value: detailCamp.conversions.toString(), suffix: '', signal: 'gray' as Signal },
+                { key: 'roas', label: 'ROAS', value: detailCamp.roas.toFixed(2), suffix: 'x', signal: getSignal(detailCamp.roas, 'roas', detailCamp.platform), spark: detailCamp.trend, fullValue: undefined },
+                { key: 'ctr', label: 'CTR', value: detailCamp.ctr.toFixed(1), suffix: '%', signal: getSignal(detailCamp.ctr, 'ctr', detailCamp.platform), fullValue: undefined },
+                { key: 'cpc', label: 'CPC', value: detailCamp.platform === 'meli' ? detailCamp.cpc.toFixed(0) : detailCamp.cpc.toFixed(3), suffix: ` ${detailCamp.platform === 'meli' ? 'ARS' : 'USD'}`, signal: getSignal(detailCamp.cpc, 'cpc', detailCamp.platform), fullValue: undefined },
+                { key: 'cpm', label: 'CPM', value: detailCamp.cpm.toFixed(2), suffix: '', signal: getSignal(detailCamp.cpm, 'cpm', detailCamp.platform), fullValue: undefined },
+                { key: 'spent', label: 'Gastado', value: formatCurrency(detailCamp.spent, detailCamp.platform, currencyMode, blueRate, true), suffix: '', signal: 'gray' as Signal, fullValue: formatCurrency(detailCamp.spent, detailCamp.platform, currencyMode, blueRate, false) },
+                { key: 'conversions', label: 'Conv.', value: detailCamp.conversions.toString(), suffix: '', signal: 'gray' as Signal, fullValue: undefined },
               ] as const).map(kpi => (
                 <div
                   key={kpi.key}
                   onClick={() => setCampExpandedKpi(campExpandedKpi === kpi.key ? null : kpi.key)}
                   className={`cursor-pointer transition-all rounded-xl ${campExpandedKpi === kpi.key ? 'ring-1 ring-indigo-500/40' : 'hover:ring-1 hover:ring-slate-600/30'}`}
                 >
-                  <MetricCard small label={kpi.label} value={kpi.value} suffix={kpi.suffix} signal={kpi.signal} spark={kpi.key === 'roas' ? kpi.spark : undefined} />
+                  <MetricCard small label={kpi.label} value={kpi.value} suffix={kpi.suffix} signal={kpi.signal} spark={kpi.key === 'roas' ? kpi.spark : undefined} fullValue={kpi.fullValue} />
                 </div>
               ))}
             </div>

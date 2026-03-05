@@ -2,7 +2,7 @@ import { Signal, SIGNAL_COLORS, getSignalLabel } from '@/lib/signals';
 import { SignalDot } from './SignalDot';
 import { Sparkline } from './Sparkline';
 
-export function MetricCard({ label, value, suffix = '', signal, spark, small, change }: {
+export function MetricCard({ label, value, suffix = '', signal, spark, small, change, fullValue }: {
   label: string;
   value: string | number;
   suffix?: string;
@@ -10,6 +10,7 @@ export function MetricCard({ label, value, suffix = '', signal, spark, small, ch
   spark?: number[];
   small?: boolean;
   change?: number | null;
+  fullValue?: string;
 }) {
   const s = SIGNAL_COLORS[signal];
 
@@ -28,7 +29,10 @@ export function MetricCard({ label, value, suffix = '', signal, spark, small, ch
       </div>
       <div className="flex items-end justify-between gap-2">
         <div className="flex items-end gap-2">
-          <span className={`font-bold text-slate-100 tracking-tight ${small ? 'text-xl' : 'text-2xl'}`}>
+          <span 
+            className={`font-bold text-slate-100 tracking-tight ${small ? 'text-xl' : 'text-2xl'} ${fullValue ? 'cursor-help' : ''}`}
+            title={fullValue}
+          >
             {value}
             {suffix && <span className="text-sm font-normal text-slate-400">{suffix}</span>}
           </span>
