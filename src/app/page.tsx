@@ -11,6 +11,7 @@ import { BarChart } from '@/components/dashboard/BarChart';
 import { DonutChart } from '@/components/dashboard/DonutChart';
 import { HorizontalBarChart } from '@/components/dashboard/HorizontalBarChart';
 import { LineChart } from '@/components/dashboard/LineChart';
+import { KpiSkeleton, CampaignSkeleton, LoadingOverlay } from '@/components/dashboard/Skeleton';
 
 type Tab = 'all' | 'meta' | 'meli';
 type DatePreset = '7d' | '14d' | '30d' | '90d' | 'custom';
@@ -48,6 +49,7 @@ export default function Dashboard() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<string>('');
   const [sources, setSources] = useState<any>({});
   const [aiAnalysis, setAiAnalysis] = useState<{ analysis: string; date: string } | null>(null);
@@ -91,8 +93,9 @@ export default function Dashboard() {
         setComparisonMeli(data.comparisonMeli || null);
         setDailyMetrics(data.dailyMetrics || []);
         setLoading(false);
+        setInitialLoad(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { setLoading(false); setInitialLoad(false); });
   }, [dateFrom, dateTo]);
 
   useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
@@ -233,6 +236,23 @@ export default function Dashboard() {
         </div>
 
         {/* KPI Cards (clickable) */}
+        {initialLoad ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3 mb-6">
+            {Array.from({ length: 6 }).map((_, i) => <KpiSkeleton key={i} />)}
+          </div>
+        ) : null}
+
+        {initialLoad ? (
+          <div className="mb-6">
+            <div className="animate-pulse rounded bg-slate-700/30 h-4 w-24 mb-3" />
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => <CampaignSkeleton key={i} />)}
+            </div>
+          </div>
+        ) : null}
+
+        {!initialLoad && <div className="relative">
+        {loading && !initialLoad && <LoadingOverlay />}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3 mb-2">
           {([
             { key: 'roas', label: 'ROAS Total', value: avgRoas.toFixed(2), suffix: 'x', signal: getSignal(avgRoas, 'roas', platform), change: roasChange },
@@ -491,6 +511,8 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
+
+        </div>}
 
         {/* Glossary */}
         <div className="rounded-2xl border border-slate-700/10 bg-slate-900/40 p-4 sm:p-6">
