@@ -1,6 +1,6 @@
 const BASE = 'https://api.mercadolibre.com';
 
-export async function fetchMeliCampaigns() {
+export async function fetchMeliCampaigns(paramDateFrom?: string, paramDateTo?: string) {
   const token = process.env.MELI_ACCESS_TOKEN;
   if (!token) return [];
 
@@ -17,11 +17,11 @@ export async function fetchMeliCampaigns() {
     const advId = advertiser.advertiser_id;
     const siteId = advertiser.site_id || 'MLA';
 
-    // 2. Get campaigns with metrics (last 7 days)
+    // 2. Get campaigns with metrics
     const today = new Date();
     const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const dateFrom = weekAgo.toISOString().split('T')[0];
-    const dateTo = today.toISOString().split('T')[0];
+    const dateFrom = paramDateFrom || weekAgo.toISOString().split('T')[0];
+    const dateTo = paramDateTo || today.toISOString().split('T')[0];
 
     const campRes = await fetch(
       `${BASE}/marketplace/advertising/${siteId}/advertisers/${advId}/product_ads/campaigns/search?limit=50&date_from=${dateFrom}&date_to=${dateTo}&metrics_summary=true&metrics=clicks,prints,cost,cpc,acos,direct_amount,indirect_amount,total_amount,units_quantity,direct_units_quantity,indirect_units_quantity`,

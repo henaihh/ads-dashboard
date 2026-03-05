@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Campaign } from '@/lib/data';
 import { getSignal, SIGNAL_COLORS, getSignalLabel, Signal } from '@/lib/signals';
 import { getRecommendations, Recommendation } from '@/lib/recommendations';
@@ -12,6 +12,15 @@ import { DonutChart } from '@/components/dashboard/DonutChart';
 import { HorizontalBarChart } from '@/components/dashboard/HorizontalBarChart';
 
 type Tab = 'all' | 'meta' | 'meli';
+type DatePreset = '7d' | '14d' | '30d' | '90d' | 'custom';
+
+function getDateRange(preset: DatePreset, customFrom?: string, customTo?: string): { dateFrom: string; dateTo: string } {
+  if (preset === 'custom' && customFrom && customTo) return { dateFrom: customFrom, dateTo: customTo };
+  const days = preset === '14d' ? 14 : preset === '30d' ? 30 : preset === '90d' ? 90 : 7;
+  const today = new Date();
+  const from = new Date(today.getTime() - days * 24 * 60 * 60 * 1000);
+  return { dateFrom: from.toISOString().split('T')[0], dateTo: today.toISOString().split('T')[0] };
+}
 
 function formatCurrency(val: number, platform: string) {
   if (platform === 'meli') return `$${val.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
@@ -37,17 +46,23 @@ export default function Dashboard() {
   const [sources, setSources] = useState<any>({});
   const [aiAnalysis, setAiAnalysis] = useState<{ analysis: string; date: string } | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [datePreset, setDatePreset] = useState<DatePreset>('7d');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+  const [showCustomRange, setShowCustomRange] = useState(false);
+
+  const { dateFrom, dateTo } = getDateRange(datePreset, customFrom, customTo);
 
   useEffect(() => {
-    // Fetch AI daily analysis
     fetch('/api/ai/daily-analysis')
       .then(r => r.json())
       .then(data => { if (data.analysis) setAiAnalysis(data); })
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    fetch('/api/campaigns')
+  const fetchCampaigns = useCallback(() => {
+    setLoading(true);
+    fetch(`/api/campaigns?dateFrom=${dateFrom}&dateTo=${dateTo}`)
       .then(r => r.json())
       .then(data => {
         setCampaigns(data.campaigns || []);
@@ -56,7 +71,9 @@ export default function Dashboard() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [dateFrom, dateTo]);
+
+  useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
 
   const filtered = tab === 'all'
     ? campaigns
@@ -114,6 +131,53 @@ export default function Dashboard() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Date Range Filter */}
+        <div className="flex flex-wrap items-center gap-2 mb-5">
+          {(['7d', '14d', '30d', '90d'] as DatePreset[]).map(p => (
+            <button
+              key={p}
+              onClick={() => { setDatePreset(p); setShowCustomRange(false); }}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                datePreset === p && !showCustomRange
+                  ? 'border-indigo-500/40 bg-indigo-500/15 text-indigo-300'
+                  : 'border-slate-700/20 bg-slate-900/50 text-slate-400 hover:text-slate-300 hover:border-slate-600/30'
+              }`}
+            >
+              {p === '7d' ? '7 días' : p === '14d' ? '14 días' : p === '30d' ? '30 días' : '90 días'}
+            </button>
+          ))}
+          <button
+            onClick={() => { setShowCustomRange(!showCustomRange); setDatePreset('custom'); }}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+              showCustomRange
+                ? 'border-indigo-500/40 bg-indigo-500/15 text-indigo-300'
+                : 'border-slate-700/20 bg-slate-900/50 text-slate-400 hover:text-slate-300 hover:border-slate-600/30'
+            }`}
+          >
+            📅 Personalizado
+          </button>
+          {showCustomRange && (
+            <div className="flex items-center gap-2 ml-1">
+              <input
+                type="date"
+                value={customFrom}
+                onChange={e => setCustomFrom(e.target.value)}
+                className="bg-slate-800/80 border border-slate-700/30 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500/50"
+              />
+              <span className="text-slate-500 text-xs">→</span>
+              <input
+                type="date"
+                value={customTo}
+                onChange={e => setCustomTo(e.target.value)}
+                className="bg-slate-800/80 border border-slate-700/30 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500/50"
+              />
+            </div>
+          )}
+          <span className="text-[10px] text-slate-500 ml-auto hidden sm:block">
+            {dateFrom} — {dateTo}
+          </span>
         </div>
 
         {/* KPI Cards */}
@@ -285,7 +349,7 @@ export default function Dashboard() {
               onClick={async () => {
                 setAiLoading(true);
                 try {
-                  const res = await fetch('/api/ai/daily-analysis', { method: 'POST' });
+                  const res = await fetch(`/api/ai/daily-analysis?dateFrom=${dateFrom}&dateTo=${dateTo}`, { method: 'POST' });
                   const data = await res.json();
                   if (data.analysis) setAiAnalysis({ analysis: data.analysis, date: data.date });
                 } catch {}

@@ -2,10 +2,20 @@ import { NextResponse } from 'next/server';
 
 const META_BASE = 'https://graph.facebook.com/v19.0';
 
-async function fetchMetaCampaigns() {
+function getDateRange(dateFrom?: string, dateTo?: string): { since: string; until: string } {
+  if (dateFrom && dateTo) return { since: dateFrom, until: dateTo };
+  const today = new Date();
+  const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+  return { since: weekAgo.toISOString().split('T')[0], until: today.toISOString().split('T')[0] };
+}
+
+async function fetchMetaCampaigns(dateFrom?: string, dateTo?: string) {
   const token = process.env.META_ACCESS_TOKEN;
   const adAccountId = process.env.META_AD_ACCOUNT_ID;
   if (!token || !adAccountId) return [];
+
+  const { since, until } = getDateRange(dateFrom, dateTo);
+  const timeRange = encodeURIComponent(JSON.stringify({ since, until }));
 
   try {
     // Get campaigns
@@ -16,37 +26,37 @@ async function fetchMetaCampaigns() {
     const campData = await campRes.json();
     if (campData.error) { console.error('Meta campaigns error:', campData.error); return []; }
 
-    // Get insights (last 7 days)
+    // Get insights
     const insRes = await fetch(
-      `${META_BASE}/${adAccountId}/insights?fields=campaign_id,campaign_name,spend,impressions,clicks,ctr,cpc,cpm,reach,frequency,actions,action_values,cost_per_action_type&date_preset=last_7d&level=campaign&limit=50&access_token=${token}`,
+      `${META_BASE}/${adAccountId}/insights?fields=campaign_id,campaign_name,spend,impressions,clicks,ctr,cpc,cpm,reach,frequency,actions,action_values,cost_per_action_type&time_range=${timeRange}&level=campaign&limit=50&access_token=${token}`,
       { cache: 'no-store' }
     );
     const insData = await insRes.json();
 
     // Get daily breakdown for trends
     const dailyRes = await fetch(
-      `${META_BASE}/${adAccountId}/insights?fields=campaign_id,spend,actions,action_values&date_preset=last_7d&level=campaign&time_increment=1&limit=200&access_token=${token}`,
+      `${META_BASE}/${adAccountId}/insights?fields=campaign_id,spend,impressions,clicks,actions,action_values&time_range=${timeRange}&level=campaign&time_increment=1&limit=500&access_token=${token}`,
       { cache: 'no-store' }
     );
     const dailyData = await dailyRes.json();
 
     // Get adset breakdown
     const adsetRes = await fetch(
-      `${META_BASE}/${adAccountId}/insights?fields=adset_id,adset_name,campaign_id,spend,clicks,ctr,actions,action_values&date_preset=last_7d&level=adset&limit=100&access_token=${token}`,
+      `${META_BASE}/${adAccountId}/insights?fields=adset_id,adset_name,campaign_id,spend,clicks,ctr,actions,action_values&time_range=${timeRange}&level=adset&limit=100&access_token=${token}`,
       { cache: 'no-store' }
     );
     const adsetData = await adsetRes.json();
 
     // Get age+gender breakdown
     const ageGenderRes = await fetch(
-      `${META_BASE}/${adAccountId}/insights?fields=campaign_id,impressions,clicks,spend&date_preset=last_7d&level=campaign&breakdowns=age,gender&limit=500&access_token=${token}`,
+      `${META_BASE}/${adAccountId}/insights?fields=campaign_id,impressions,clicks,spend&time_range=${timeRange}&level=campaign&breakdowns=age,gender&limit=500&access_token=${token}`,
       { cache: 'no-store' }
     );
     const ageGenderData = await ageGenderRes.json();
 
     // Get region breakdown
     const regionRes = await fetch(
-      `${META_BASE}/${adAccountId}/insights?fields=campaign_id,impressions&date_preset=last_7d&level=campaign&breakdowns=region&limit=500&access_token=${token}`,
+      `${META_BASE}/${adAccountId}/insights?fields=campaign_id,impressions&time_range=${timeRange}&level=campaign&breakdowns=region&limit=500&access_token=${token}`,
       { cache: 'no-store' }
     );
     const regionData = await regionRes.json();
@@ -175,10 +185,14 @@ async function fetchMetaCampaigns() {
 
 // MeLi campaigns imported from separate file
 import { fetchMeliCampaigns } from './meli';
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const dateFrom = searchParams.get('dateFrom') || undefined;
+  const dateTo = searchParams.get('dateTo') || undefined;
+
   const [meta, meli] = await Promise.all([
-    fetchMetaCampaigns(),
-    fetchMeliCampaigns(),
+    fetchMetaCampaigns(dateFrom, dateTo),
+    fetchMeliCampaigns(dateFrom, dateTo),
   ]);
 
   return NextResponse.json({
