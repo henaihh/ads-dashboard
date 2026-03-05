@@ -8,6 +8,17 @@ export interface AdSet {
   ctr: number;
 }
 
+export interface DemographicSlice {
+  label: string;
+  value: number;
+}
+
+export interface Demographics {
+  gender?: DemographicSlice[];
+  age?: DemographicSlice[];
+  region?: DemographicSlice[];
+}
+
 export interface Campaign {
   id: number;
   platform: Platform;
@@ -29,6 +40,7 @@ export interface Campaign {
   trend: number[];
   trendLabels: string[];
   adSets: AdSet[];
+  demographics?: Demographics;
 }
 
 export const SAMPLE_CAMPAIGNS: Campaign[] = [
@@ -43,6 +55,31 @@ export const SAMPLE_CAMPAIGNS: Campaign[] = [
       { name: 'Hombres 18-24', spent: 289, conversions: 28, roas: 4.51, ctr: 2.1 },
       { name: 'Retargeting', spent: 246, conversions: 20, roas: 5.85, ctr: 2.8 },
     ],
+    demographics: {
+      gender: [
+        { label: 'Mujeres', value: 78500 },
+        { label: 'Hombres', value: 56200 },
+        { label: 'Desconocido', value: 7800 },
+      ],
+      age: [
+        { label: '18-24', value: 31200 },
+        { label: '25-34', value: 52100 },
+        { label: '35-44', value: 34800 },
+        { label: '45-54', value: 16200 },
+        { label: '55-64', value: 6100 },
+        { label: '65+', value: 2100 },
+      ],
+      region: [
+        { label: 'Buenos Aires', value: 48200 },
+        { label: 'CABA', value: 32100 },
+        { label: 'Córdoba', value: 18500 },
+        { label: 'Santa Fe', value: 14200 },
+        { label: 'Mendoza', value: 9800 },
+        { label: 'Tucumán', value: 6200 },
+        { label: 'Entre Ríos', value: 4800 },
+        { label: 'Otras', value: 8700 },
+      ],
+    },
   },
   {
     id: 2, platform: 'meta', name: 'Brand Awareness - Video', status: 'active',
@@ -54,6 +91,29 @@ export const SAMPLE_CAMPAIGNS: Campaign[] = [
       { name: 'Interés Amplio', spent: 401, conversions: 6, roas: 0.55, ctr: 0.7 },
       { name: 'Audiencia Custom', spent: 222, conversions: 6, roas: 1.12, ctr: 1.3 },
     ],
+    demographics: {
+      gender: [
+        { label: 'Hombres', value: 105000 },
+        { label: 'Mujeres', value: 92000 },
+        { label: 'Desconocido', value: 13000 },
+      ],
+      age: [
+        { label: '18-24', value: 62000 },
+        { label: '25-34', value: 74000 },
+        { label: '35-44', value: 38000 },
+        { label: '45-54', value: 21000 },
+        { label: '55-64', value: 10000 },
+        { label: '65+', value: 5000 },
+      ],
+      region: [
+        { label: 'Buenos Aires', value: 72000 },
+        { label: 'CABA', value: 51000 },
+        { label: 'Córdoba', value: 28000 },
+        { label: 'Santa Fe', value: 22000 },
+        { label: 'Mendoza', value: 15000 },
+        { label: 'Otras', value: 22000 },
+      ],
+    },
   },
   {
     id: 3, platform: 'meta', name: 'Retargeting - Carrito Abandonado', status: 'active',
@@ -65,6 +125,29 @@ export const SAMPLE_CAMPAIGNS: Campaign[] = [
       { name: 'Vio Producto', spent: 245, conversions: 98, roas: 18.2, ctr: 5.1 },
       { name: 'Agregó al Carrito', spent: 167, conversions: 58, roas: 15.4, ctr: 4.3 },
     ],
+    demographics: {
+      gender: [
+        { label: 'Mujeres', value: 24500 },
+        { label: 'Hombres', value: 17800 },
+        { label: 'Desconocido', value: 2700 },
+      ],
+      age: [
+        { label: '18-24', value: 5200 },
+        { label: '25-34', value: 16800 },
+        { label: '35-44', value: 12100 },
+        { label: '45-54', value: 7200 },
+        { label: '55-64', value: 2500 },
+        { label: '65+', value: 1200 },
+      ],
+      region: [
+        { label: 'Buenos Aires', value: 15800 },
+        { label: 'CABA', value: 11200 },
+        { label: 'Córdoba', value: 5900 },
+        { label: 'Santa Fe', value: 4100 },
+        { label: 'Mendoza', value: 3200 },
+        { label: 'Otras', value: 4800 },
+      ],
+    },
   },
   {
     id: 4, platform: 'meli', name: 'Product Ads - Zapatillas Running', status: 'active',

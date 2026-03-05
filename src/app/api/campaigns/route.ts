@@ -37,6 +37,20 @@ async function fetchMetaCampaigns() {
     );
     const adsetData = await adsetRes.json();
 
+    // Get age+gender breakdown
+    const ageGenderRes = await fetch(
+      `${META_BASE}/${adAccountId}/insights?fields=campaign_id,impressions,clicks,spend&date_preset=last_7d&level=campaign&breakdowns=age,gender&limit=500&access_token=${token}`,
+      { cache: 'no-store' }
+    );
+    const ageGenderData = await ageGenderRes.json();
+
+    // Get region breakdown
+    const regionRes = await fetch(
+      `${META_BASE}/${adAccountId}/insights?fields=campaign_id,impressions,clicks,spend,region&date_preset=last_7d&level=campaign&breakdowns=region&limit=500&access_token=${token}`,
+      { cache: 'no-store' }
+    );
+    const regionData = await regionRes.json();
+
     const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
     return (campData.data || []).map((camp: any) => {
@@ -102,6 +116,33 @@ async function fetchMetaCampaigns() {
 
       const budget = parseFloat(camp.daily_budget || camp.lifetime_budget || '0') / 100;
 
+      // Demographics - age + gender
+      const campAgeGender = (ageGenderData.data || []).filter((d: any) => d.campaign_id === camp.id);
+      const genderMap: Record<string, number> = {};
+      const ageMap: Record<string, number> = {};
+      for (const row of campAgeGender) {
+        const imp = parseInt(row.impressions || '0');
+        const g = row.gender === 'male' ? 'Hombres' : row.gender === 'female' ? 'Mujeres' : 'Desconocido';
+        genderMap[g] = (genderMap[g] || 0) + imp;
+        const age = row.age || 'Otro';
+        ageMap[age] = (ageMap[age] || 0) + imp;
+      }
+
+      // Demographics - region
+      const campRegion = (regionData.data || []).filter((d: any) => d.campaign_id === camp.id);
+      const regionMap: Record<string, number> = {};
+      for (const row of campRegion) {
+        const imp = parseInt(row.impressions || '0');
+        const region = row.region || 'Desconocido';
+        regionMap[region] = (regionMap[region] || 0) + imp;
+      }
+
+      const demographics = {
+        gender: Object.entries(genderMap).map(([label, value]) => ({ label, value })),
+        age: Object.entries(ageMap).map(([label, value]) => ({ label, value })),
+        region: Object.entries(regionMap).map(([label, value]) => ({ label, value })),
+      };
+
       return {
         id: camp.id,
         platform: 'meta',
@@ -123,6 +164,7 @@ async function fetchMetaCampaigns() {
         trend: trend.length > 0 ? trend : [roas],
         trendLabels: trendLabels.length > 0 ? trendLabels : ['Hoy'],
         adSets: adsets,
+        demographics,
       };
     }).filter(Boolean);
   } catch (err) {
@@ -133,6 +175,7 @@ async function fetchMetaCampaigns() {
 
 // MeLi campaigns imported from separate file
 import { fetchMeliCampaigns } from './meli';
+import { SAMPLE_CAMPAIGNS } from '@/lib/data';
 
 export async function GET() {
   const [meta, meli] = await Promise.all([
@@ -140,11 +183,17 @@ export async function GET() {
     fetchMeliCampaigns(),
   ]);
 
+  const allCampaigns = [...meta, ...meli];
+
+  // Fallback to sample data if no real APIs are connected
+  const useSample = allCampaigns.length === 0;
+
   return NextResponse.json({
-    campaigns: [...meta, ...meli],
+    campaigns: useSample ? SAMPLE_CAMPAIGNS : allCampaigns,
     sources: {
       meta: { count: meta.length, connected: !!process.env.META_ACCESS_TOKEN },
       meli: { count: meli.length, connected: !!process.env.MELI_ACCESS_TOKEN },
+      sample: useSample,
     },
     updatedAt: new Date().toISOString(),
   });

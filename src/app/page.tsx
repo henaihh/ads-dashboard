@@ -8,6 +8,8 @@ import { MetricCard } from '@/components/dashboard/MetricCard';
 import { SignalDot } from '@/components/dashboard/SignalDot';
 import { Sparkline } from '@/components/dashboard/Sparkline';
 import { BarChart } from '@/components/dashboard/BarChart';
+import { DonutChart } from '@/components/dashboard/DonutChart';
+import { HorizontalBarChart } from '@/components/dashboard/HorizontalBarChart';
 
 type Tab = 'all' | 'meta' | 'meli';
 
@@ -188,12 +190,60 @@ export default function Dashboard() {
               <MetricCard small label="Costo/Resultado" value={detailCamp.costPerResult.toFixed(2)} signal={getSignal(detailCamp.costPerResult, 'costPerResult', detailCamp.platform)} />
             </div>
 
-            {detailCamp.adSets && (
-              <div className="grid sm:grid-cols-2 gap-5">
-                <BarChart items={detailCamp.adSets} valueKey="roas" label="ROAS por Ad Set" platform={detailCamp.platform} />
-                <BarChart items={detailCamp.adSets} valueKey="ctr" label="CTR por Ad Set" platform={detailCamp.platform} />
+            {detailCamp.adSets && detailCamp.adSets.length > 0 && (
+              <div className="grid sm:grid-cols-2 gap-5 mb-5">
+                <BarChart items={detailCamp.adSets} valueKey="roas" label={detailCamp.platform === 'meli' ? 'ROAS por Producto' : 'ROAS por Ad Set'} platform={detailCamp.platform} />
+                <BarChart items={detailCamp.adSets} valueKey="ctr" label={detailCamp.platform === 'meli' ? 'CTR por Producto' : 'CTR por Ad Set'} platform={detailCamp.platform} />
               </div>
             )}
+
+            {/* Audience Segmentation */}
+            {detailCamp.demographics && (detailCamp.demographics.gender?.length || detailCamp.demographics.age?.length || detailCamp.demographics.region?.length) ? (
+              <div className="mt-5 pt-5 border-t border-slate-700/15">
+                <h4 className="text-sm font-bold text-slate-300 mb-4 flex items-center gap-2">
+                  🎯 Audiencia
+                </h4>
+                <div className="grid sm:grid-cols-3 gap-6">
+                  {/* Gender donut */}
+                  {detailCamp.demographics.gender && detailCamp.demographics.gender.length > 0 && (
+                    <DonutChart
+                      label="Género (Impresiones)"
+                      slices={detailCamp.demographics.gender.map(g => ({
+                        label: g.label,
+                        value: g.value,
+                        color: g.label === 'Hombres' ? '#6366f1' : g.label === 'Mujeres' ? '#ec4899' : '#64748b',
+                      }))}
+                    />
+                  )}
+
+                  {/* Age bars */}
+                  {detailCamp.demographics.age && detailCamp.demographics.age.length > 0 && (
+                    <HorizontalBarChart
+                      title="Edad (Impresiones)"
+                      bars={detailCamp.demographics.age.map(a => ({ label: a.label, value: a.value }))}
+                      color="#8b5cf6"
+                    />
+                  )}
+
+                  {/* Region bars */}
+                  {detailCamp.demographics.region && detailCamp.demographics.region.length > 0 && (
+                    <HorizontalBarChart
+                      title="Región (Impresiones)"
+                      bars={detailCamp.demographics.region.map(r => ({ label: r.label, value: r.value }))}
+                      color="#06b6d4"
+                      maxBars={6}
+                    />
+                  )}
+                </div>
+              </div>
+            ) : detailCamp.platform === 'meli' ? (
+              <div className="mt-5 pt-5 border-t border-slate-700/15">
+                <div className="text-xs text-slate-500 flex items-center gap-2">
+                  <span>🎯</span>
+                  <span>MercadoLibre no proporciona datos demográficos de audiencia a través de su API.</span>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
 
