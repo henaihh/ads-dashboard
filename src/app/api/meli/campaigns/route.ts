@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getMeliToken } from '@/lib/meli-auth';
 
 const BASE = 'https://api.mercadolibre.com';
 const METRICS = 'clicks,prints,ctr,cost,cpc,acos,roas,units_quantity,direct_amount,indirect_amount,total_amount';
@@ -12,9 +13,16 @@ async function meliGet(path: string, token: string, extraHeaders?: Record<string
 }
 
 export async function GET() {
-  const token = process.env.MELI_ACCESS_TOKEN;
-  if (!token) {
-    return NextResponse.json({ error: 'MeLi credentials not configured' }, { status: 400 });
+  let token: string;
+  
+  try {
+    token = await getMeliToken();
+  } catch (error) {
+    return NextResponse.json({ 
+      error: 'MeLi authentication failed', 
+      details: String(error),
+      action: 'Please visit /api/auth/meli to re-authenticate'
+    }, { status: 401 });
   }
 
   try {
