@@ -46,6 +46,11 @@ export async function GET() {
 
 // POST: Generate new analysis (called by Vercel Cron or manually)
 export async function POST(request: Request) {
+  // Skip during build time to avoid circular dependency
+  if (process.env.NODE_ENV === 'production' && !process.env.VERCEL_URL) {
+    return NextResponse.json({ error: 'Not available during build' }, { status: 503 });
+  }
+
   // Verify cron secret or allow manual trigger
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -60,8 +65,14 @@ export async function POST(request: Request) {
 
   try {
     // 1. Fetch campaign data from our own API
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ads-dashboard-vicus.vercel.app';
-    const campaignRes = await fetch(`${baseUrl}/api/campaigns`, { cache: 'no-store' });
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXT_PUBLIC_APP_URL || 'https://ads-dashboard-vicus.vercel.app';
+    
+    const campaignRes = await fetch(`${baseUrl}/api/campaigns`, { 
+      cache: 'no-store',
+      headers: { 'User-Agent': 'internal-cron' }
+    });
     const campaignData = await campaignRes.json();
 
     if (!campaignData.campaigns || campaignData.campaigns.length === 0) {
