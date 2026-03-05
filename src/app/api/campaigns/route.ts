@@ -131,69 +131,8 @@ async function fetchMetaCampaigns() {
   }
 }
 
-async function fetchMeliCampaigns() {
-  const token = process.env.MELI_ACCESS_TOKEN;
-  const userId = process.env.MELI_USER_ID;
-  if (!token || !userId) return [];
-
-  try {
-    const res = await fetch(
-      `https://api.mercadolibre.com/advertising/advertisers/${userId}/product_ads/campaigns?limit=20&metrics_summary=true`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'api-version': '2',
-        },
-        cache: 'no-store',
-      }
-    );
-
-    if (!res.ok) return [];
-    const data = await res.json();
-    const results = Array.isArray(data) ? data : (data.results || data.campaigns || []);
-
-    return results.map((c: any) => {
-      const metrics = c.metrics || c.metrics_summary || {};
-      const spent = metrics.cost || metrics.total_amount || 0;
-      const impressions = metrics.prints || metrics.impressions || 0;
-      const clicks = metrics.clicks || 0;
-      const revenue = metrics.revenue || 0;
-      const conversions = metrics.units_sold || metrics.conversions || 0;
-
-      const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-      const cpc = clicks > 0 ? spent / clicks : 0;
-      const cpm = impressions > 0 ? (spent / impressions) * 1000 : 0;
-      const roas = spent > 0 ? revenue / spent : 0;
-      const costPerResult = conversions > 0 ? spent / conversions : 0;
-
-      return {
-        id: c.id || c.campaign_id,
-        platform: 'meli',
-        name: c.name || c.title || `Campaña ${c.id}`,
-        status: c.status === 'active' ? 'active' : 'paused',
-        budget: c.daily_budget || c.budget || 0,
-        spent,
-        impressions,
-        reach: impressions,
-        clicks,
-        ctr,
-        cpc,
-        cpm,
-        frequency: 1.0,
-        conversions,
-        revenue,
-        roas,
-        costPerResult,
-        trend: [roas],
-        trendLabels: ['Hoy'],
-        adSets: [],
-      };
-    });
-  } catch (err) {
-    console.error('MeLi fetch error:', err);
-    return [];
-  }
-}
+// MeLi campaigns imported from separate file
+import { fetchMeliCampaigns } from './meli';
 
 export async function GET() {
   const [meta, meli] = await Promise.all([
