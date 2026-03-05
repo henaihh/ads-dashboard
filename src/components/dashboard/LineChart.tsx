@@ -24,6 +24,7 @@ export function LineChart({ data, title, formatValue, color = '#6366f1', campaig
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [hoverChangeIdx, setHoverChangeIdx] = useState<number | null>(null);
+  const [mouseX, setMouseX] = useState<number>(0);
   if (!data.length) return null;
 
   const fmt = formatValue || ((v: number) => v.toFixed(2));
@@ -65,10 +66,43 @@ export function LineChart({ data, title, formatValue, color = '#6366f1', campaig
     };
   }).filter(Boolean) as (ChangeMarker & { x: number; y: number })[];
 
+  // Handle mouse move for x-axis hover interaction
+  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const svgRect = event.currentTarget.querySelector('svg')?.getBoundingClientRect();
+    if (!svgRect) return;
+
+    const mouseXRelative = event.clientX - svgRect.left;
+    const scaleX = W / svgRect.width;
+    const actualMouseX = mouseXRelative * scaleX;
+    
+    setMouseX(actualMouseX);
+    
+    // Find closest data point by x position
+    let closestIdx = 0;
+    let minDistance = Math.abs(points[0].x - actualMouseX);
+    
+    for (let i = 1; i < points.length; i++) {
+      const distance = Math.abs(points[i].x - actualMouseX);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIdx = i;
+      }
+    }
+    
+    setHoverIdx(closestIdx);
+  };
+
+  const handleMouseLeave = () => {
+    setHoverIdx(null);
+    setHoverChangeIdx(null);
+  };
+
   return (
     <div className="rounded-2xl border border-slate-700/15 bg-slate-900/60 p-4 sm:p-5">
       <h4 className="text-sm font-bold text-slate-300 mb-3">{title}</h4>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 220 }}>
+      <div onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 220 }}>
         {/* Grid lines */}
         {yLabels.map((v, i) => {
           const y = padY + chartH - ((v - min) / range) * chartH;
@@ -88,9 +122,22 @@ export function LineChart({ data, title, formatValue, color = '#6366f1', campaig
         {/* Line */}
         <path d={pathD} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
 
+        {/* Vertical hover line */}
+        {hoverIdx !== null && (
+          <line 
+            x1={points[hoverIdx].x} 
+            y1={padY} 
+            x2={points[hoverIdx].x} 
+            y2={padY + chartH} 
+            stroke="rgba(148,163,184,0.3)" 
+            strokeWidth={1}
+            strokeDasharray="4,4"
+          />
+        )}
+
         {/* Data points and labels */}
         {points.map((p, i) => (
-          <g key={i} onMouseEnter={() => setHoverIdx(i)} onMouseLeave={() => setHoverIdx(null)}>
+          <g key={i}>
             <circle cx={p.x} cy={p.y} r={hoverIdx === i ? 5 : 3} fill={color} opacity={hoverIdx === i ? 1 : 0.8} className="transition-all" />
             {/* X labels */}
             {(data.length <= 14 || i % Math.ceil(data.length / 10) === 0) && (
@@ -154,6 +201,7 @@ export function LineChart({ data, title, formatValue, color = '#6366f1', campaig
           </g>
         ))}
       </svg>
+      </div>
     </div>
   );
 }
