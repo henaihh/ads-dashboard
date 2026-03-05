@@ -7,13 +7,23 @@ interface DataPoint {
   value: number;
 }
 
-export function LineChart({ data, title, formatValue, color = '#6366f1' }: {
+interface ChangeMarker {
+  date: string;
+  change_type: string;
+  before_value?: string;
+  after_value?: string;
+  note?: string;
+}
+
+export function LineChart({ data, title, formatValue, color = '#6366f1', campaignChanges = [] }: {
   data: DataPoint[];
   title: string;
   formatValue?: (v: number) => string;
   color?: string;
+  campaignChanges?: ChangeMarker[];
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [hoverChangeIdx, setHoverChangeIdx] = useState<number | null>(null);
   if (!data.length) return null;
 
   const fmt = formatValue || ((v: number) => v.toFixed(2));
@@ -40,6 +50,20 @@ export function LineChart({ data, title, formatValue, color = '#6366f1' }: {
   // Y-axis labels
   const yTicks = 4;
   const yLabels = Array.from({ length: yTicks + 1 }, (_, i) => min + (range / yTicks) * i);
+
+  // Map change markers to chart positions
+  const changeMarkers = campaignChanges.map(change => {
+    // Find the closest data point by matching MM-DD from the change date
+    const changeDate = change.date.slice(5, 10); // Get MM-DD format
+    const dataIdx = data.findIndex(d => d.label === changeDate);
+    if (dataIdx === -1) return null;
+    
+    return {
+      ...change,
+      x: points[dataIdx]?.x || 0,
+      y: padY + 10, // Position at top of chart
+    };
+  }).filter(Boolean) as (ChangeMarker & { x: number; y: number })[];
 
   return (
     <div className="rounded-2xl border border-slate-700/15 bg-slate-900/60 p-4 sm:p-5">
@@ -80,6 +104,50 @@ export function LineChart({ data, title, formatValue, color = '#6366f1' }: {
                 <rect x={p.x - 35} y={p.y - 28} width={70} height={22} rx={6} fill="rgba(15,23,42,0.9)" stroke={color} strokeWidth={1} />
                 <text x={p.x} y={p.y - 14} textAnchor="middle" fill="white" fontSize={11} fontWeight="bold">
                   {fmt(data[i].value)}
+                </text>
+              </>
+            )}
+          </g>
+        ))}
+
+        {/* Change markers (orange flags) */}
+        {changeMarkers.map((marker, i) => (
+          <g 
+            key={i} 
+            onMouseEnter={() => setHoverChangeIdx(i)} 
+            onMouseLeave={() => setHoverChangeIdx(null)}
+            className="cursor-help"
+          >
+            {/* Flag pole */}
+            <line x1={marker.x} y1={marker.y} x2={marker.x} y2={marker.y + 20} stroke="#f97316" strokeWidth={2} />
+            
+            {/* Flag */}
+            <path 
+              d={`M ${marker.x} ${marker.y} L ${marker.x + 12} ${marker.y + 4} L ${marker.x + 12} ${marker.y + 12} L ${marker.x} ${marker.y + 16} Z`} 
+              fill="#f97316" 
+              opacity={hoverChangeIdx === i ? 1 : 0.8}
+            />
+            
+            {/* Hover tooltip */}
+            {hoverChangeIdx === i && (
+              <>
+                <rect 
+                  x={marker.x - 80} 
+                  y={marker.y - 50} 
+                  width={160} 
+                  height={40} 
+                  rx={6} 
+                  fill="rgba(15,23,42,0.95)" 
+                  stroke="#f97316" 
+                  strokeWidth={1} 
+                />
+                <text x={marker.x} y={marker.y - 32} textAnchor="middle" fill="#f97316" fontSize={10} fontWeight="bold">
+                  {marker.change_type}
+                </text>
+                <text x={marker.x} y={marker.y - 20} textAnchor="middle" fill="white" fontSize={9}>
+                  {marker.before_value && marker.after_value ? 
+                    `${marker.before_value} → ${marker.after_value}` : 
+                    marker.note || 'Ver detalles'}
                 </text>
               </>
             )}

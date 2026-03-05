@@ -13,6 +13,7 @@ import { DonutChart } from '@/components/dashboard/DonutChart';
 import { HorizontalBarChart } from '@/components/dashboard/HorizontalBarChart';
 import { LineChart } from '@/components/dashboard/LineChart';
 import { KpiSkeleton, CampaignSkeleton, LoadingOverlay } from '@/components/dashboard/Skeleton';
+import { ChangeLogModal } from '@/components/dashboard/ChangeLogModal';
 
 type Tab = 'all' | 'meta' | 'meli';
 type DatePreset = '7d' | '14d' | '30d' | '90d' | 'custom';
@@ -72,8 +73,17 @@ export default function Dashboard() {
   const [expandedKpi, setExpandedKpi] = useState<string | null>(null);
   const [campExpandedKpi, setCampExpandedKpi] = useState<string | null>(null);
   const [dailyMetrics, setDailyMetrics] = useState<any[]>([]);
+  const [showChangeModal, setShowChangeModal] = useState(false);
+  const [campaignChanges, setCampaignChanges] = useState<any[]>([]);
 
   const { dateFrom, dateTo } = getDateRange(datePreset, customFrom, customTo);
+
+  const fetchCampaignChanges = useCallback(() => {
+    fetch(`/api/campaign-changes?dateFrom=${dateFrom}&dateTo=${dateTo}`)
+      .then(r => r.json())
+      .then(data => setCampaignChanges(data.changes || []))
+      .catch(() => setCampaignChanges([]));
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     fetch('/api/ai/daily-analysis')
@@ -108,7 +118,14 @@ export default function Dashboard() {
       .catch(() => { setLoading(false); setInitialLoad(false); });
   }, [dateFrom, dateTo]);
 
-  useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
+  useEffect(() => { 
+    fetchCampaigns(); 
+    fetchCampaignChanges();
+  }, [fetchCampaigns, fetchCampaignChanges]);
+
+  const handleChangeLogged = () => {
+    fetchCampaignChanges();
+  };
 
   const filtered = tab === 'all'
     ? campaigns
@@ -304,6 +321,7 @@ export default function Dashboard() {
                 : expandedKpi === 'conversions' ? (v => Math.round(v).toString())
                 : (v => '$' + v.toLocaleString('es-AR', { maximumFractionDigits: 0 }))}
               color={expandedKpi === 'roas' ? '#6366f1' : expandedKpi === 'revenue' ? '#10b981' : expandedKpi === 'spent' ? '#f59e0b' : '#8b5cf6'}
+              campaignChanges={campaignChanges}
             />
           </div>
         )}
@@ -421,6 +439,7 @@ export default function Dashboard() {
                     : campExpandedKpi === 'conversions' ? (v => Math.round(v).toString())
                     : (v => '$' + v.toLocaleString('es-AR', { maximumFractionDigits: 0 }))}
                   color={campExpandedKpi === 'roas' ? '#6366f1' : campExpandedKpi === 'revenue' || campExpandedKpi === 'conversions' ? '#10b981' : campExpandedKpi === 'spent' ? '#f59e0b' : '#8b5cf6'}
+                  campaignChanges={campaignChanges.filter(c => c.campaign_id === detailCamp.id.toString())}
                 />
               </div>
             )}
@@ -634,6 +653,24 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      
+      {/* Floating Change Log Button */}
+      <button
+        onClick={() => setShowChangeModal(true)}
+        className="fixed bottom-6 left-6 bg-orange-600 hover:bg-orange-500 text-white w-12 h-12 rounded-full shadow-xl flex items-center justify-center text-lg font-bold transition-all hover:scale-110 z-40"
+        title="Registrar cambio en campaña"
+      >
+        +
+      </button>
+      
+      {/* Change Log Modal */}
+      <ChangeLogModal
+        isOpen={showChangeModal}
+        onClose={() => setShowChangeModal(false)}
+        campaigns={campaigns}
+        onChangeLogged={handleChangeLogged}
+      />
+      
       <AiChat dateRange={`${dateFrom} — ${dateTo}`} />
     </div>
   );
