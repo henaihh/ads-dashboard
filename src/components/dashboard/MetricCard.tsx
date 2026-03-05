@@ -16,41 +16,54 @@ export function MetricCard({ label, value, suffix = '', signal, spark, small, ch
 
   return (
     <div
-      className="rounded-xl border backdrop-blur-sm transition-colors"
+      className={`rounded-xl border backdrop-blur-sm transition-colors flex flex-col ${small ? 'h-[120px]' : 'h-[140px]'}`}
       style={{
         background: 'rgba(15,23,42,0.6)',
         borderColor: `${s.bg}22`,
         padding: small ? '12px 14px' : '16px 18px',
       }}
     >
-      <div className="flex justify-between items-center mb-1.5">
+      {/* Header: Label + Signal */}
+      <div className="flex justify-between items-center mb-2">
         <span className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">{label}</span>
         <SignalDot color={signal} />
       </div>
-      <div className="flex items-end justify-between gap-2">
-        <div className="flex items-end gap-2">
+      
+      {/* Main Value: Full Width */}
+      <div className="flex-1 flex flex-col justify-center">
+        <div className="flex items-center justify-between gap-2 mb-1">
           <span 
-            className={`font-bold text-slate-100 tracking-tight ${small ? 'text-xl' : 'text-2xl'} ${fullValue ? 'cursor-help' : ''}`}
+            className={`font-bold text-slate-100 tracking-tight ${small ? 'text-xl' : 'text-2xl'} ${fullValue ? 'cursor-help' : ''} flex-1`}
             title={fullValue}
           >
             {value}
-            {suffix && <span className="text-sm font-normal text-slate-400">{suffix}</span>}
           </span>
-          {change != null && isFinite(change) && (
-            <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md mb-0.5 ${
-              change > 0 ? 'bg-emerald-500/15 text-emerald-400' : change < 0 ? 'bg-red-500/15 text-red-400' : 'bg-slate-500/15 text-slate-400'
-            }`}>
-              {change > 0 ? '↑' : change < 0 ? '↓' : '='}{Math.abs(change).toFixed(1)}%
+          {spark && (
+            <div className="flex-shrink-0">
+              <Sparkline data={spark} color={signal} width={small ? 56 : 64} height={small ? 20 : 24} />
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Footer: Suffix + Change + Status */}
+      <div className="flex items-center justify-between gap-2 mt-auto">
+        <div className="flex items-center gap-2">
+          {suffix && <span className="text-sm font-medium text-slate-400">{suffix}</span>}
+          {signal !== 'gray' && (
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${s.pill}`}>
+              {getSignalLabel(signal)}
             </span>
           )}
         </div>
-        {spark && <Sparkline data={spark} color={signal} width={small ? 64 : 80} height={small ? 24 : 28} />}
+        {change != null && isFinite(change) && (
+          <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 ${
+            change > 0 ? 'bg-emerald-500/15 text-emerald-400' : change < 0 ? 'bg-red-500/15 text-red-400' : 'bg-slate-500/15 text-slate-400'
+          }`}>
+            {change > 0 ? '↑' : change < 0 ? '↓' : '='}{Math.abs(change).toFixed(1)}%
+          </span>
+        )}
       </div>
-      {signal !== 'gray' && (
-        <span className={`inline-block text-[10px] font-semibold mt-1.5 px-2 py-0.5 rounded-md ${s.pill}`}>
-          {getSignalLabel(signal)}
-        </span>
-      )}
     </div>
   );
 }
