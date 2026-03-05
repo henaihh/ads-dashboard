@@ -41,6 +41,7 @@ export interface Campaign {
   trendLabels: string[];
   adSets: AdSet[];
   demographics?: Demographics;
+  dailyBreakdown?: { date: string; spent: number; revenue: number; conversions: number; clicks: number; impressions: number }[];
 }
 
 export const SAMPLE_CAMPAIGNS: Campaign[] = [

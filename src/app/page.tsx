@@ -61,6 +61,7 @@ export default function Dashboard() {
   const [currencyMode, setCurrencyMode] = useState<'ARS' | 'USD'>('ARS');
   const [blueRate, setBlueRate] = useState<number>(1300);
   const [expandedKpi, setExpandedKpi] = useState<string | null>(null);
+  const [campExpandedKpi, setCampExpandedKpi] = useState<string | null>(null);
   const [dailyMetrics, setDailyMetrics] = useState<any[]>([]);
 
   const { dateFrom, dateTo } = getDateRange(datePreset, customFrom, customTo);
@@ -310,7 +311,7 @@ export default function Dashboard() {
               return (
                 <button
                   key={c.id}
-                  onClick={() => setSelectedId(isSelected ? null : c.id)}
+                  onClick={() => { setSelectedId(isSelected ? null : c.id); setCampExpandedKpi(null); }}
                   className={`w-full text-left rounded-xl border px-3 sm:px-4 py-3 transition-all ${
                     isSelected
                       ? 'bg-blue-500/5 border-blue-500/25'
@@ -364,14 +365,57 @@ export default function Dashboard() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-5">
-              <MetricCard small label="ROAS" value={detailCamp.roas.toFixed(2)} suffix="x" signal={getSignal(detailCamp.roas, 'roas', detailCamp.platform)} spark={detailCamp.trend} />
-              <MetricCard small label="CTR" value={detailCamp.ctr.toFixed(1)} suffix="%" signal={getSignal(detailCamp.ctr, 'ctr', detailCamp.platform)} />
-              <MetricCard small label="CPC" value={detailCamp.platform === 'meli' ? detailCamp.cpc.toFixed(0) : detailCamp.cpc.toFixed(3)} suffix={` ${detailCamp.platform === 'meli' ? 'ARS' : 'USD'}`} signal={getSignal(detailCamp.cpc, 'cpc', detailCamp.platform)} />
-              <MetricCard small label="CPM" value={detailCamp.cpm.toFixed(2)} signal={getSignal(detailCamp.cpm, 'cpm', detailCamp.platform)} />
-              <MetricCard small label="Frecuencia" value={detailCamp.frequency.toFixed(2)} signal={getSignal(detailCamp.frequency, 'frequency', detailCamp.platform)} />
-              <MetricCard small label="Costo/Resultado" value={detailCamp.costPerResult.toFixed(2)} signal={getSignal(detailCamp.costPerResult, 'costPerResult', detailCamp.platform)} />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-2">
+              {([
+                { key: 'roas', label: 'ROAS', value: detailCamp.roas.toFixed(2), suffix: 'x', signal: getSignal(detailCamp.roas, 'roas', detailCamp.platform), spark: detailCamp.trend },
+                { key: 'ctr', label: 'CTR', value: detailCamp.ctr.toFixed(1), suffix: '%', signal: getSignal(detailCamp.ctr, 'ctr', detailCamp.platform) },
+                { key: 'cpc', label: 'CPC', value: detailCamp.platform === 'meli' ? detailCamp.cpc.toFixed(0) : detailCamp.cpc.toFixed(3), suffix: ` ${detailCamp.platform === 'meli' ? 'ARS' : 'USD'}`, signal: getSignal(detailCamp.cpc, 'cpc', detailCamp.platform) },
+                { key: 'cpm', label: 'CPM', value: detailCamp.cpm.toFixed(2), suffix: '', signal: getSignal(detailCamp.cpm, 'cpm', detailCamp.platform) },
+                { key: 'spent', label: 'Gastado', value: formatCurrency(detailCamp.spent, detailCamp.platform, currencyMode, blueRate), suffix: '', signal: 'gray' as Signal },
+                { key: 'conversions', label: 'Conv.', value: detailCamp.conversions.toString(), suffix: '', signal: 'gray' as Signal },
+              ] as const).map(kpi => (
+                <div
+                  key={kpi.key}
+                  onClick={() => setCampExpandedKpi(campExpandedKpi === kpi.key ? null : kpi.key)}
+                  className={`cursor-pointer transition-all rounded-xl ${campExpandedKpi === kpi.key ? 'ring-1 ring-indigo-500/40' : 'hover:ring-1 hover:ring-slate-600/30'}`}
+                >
+                  <MetricCard small label={kpi.label} value={kpi.value} suffix={kpi.suffix} signal={kpi.signal} spark={kpi.key === 'roas' ? kpi.spark : undefined} />
+                </div>
+              ))}
             </div>
+
+            {/* Campaign KPI Detail Chart */}
+            {campExpandedKpi && detailCamp.dailyBreakdown && detailCamp.dailyBreakdown.length > 0 && (
+              <div className="mb-5 animate-in fade-in slide-in-from-top-2 duration-300">
+                <LineChart
+                  title={{
+                    roas: '📈 ROAS Diario',
+                    ctr: '📈 CTR Diario (%)',
+                    cpc: '📈 CPC Diario',
+                    cpm: '📈 CPM Diario',
+                    spent: '📈 Gasto Diario',
+                    conversions: '📈 Conversiones Diarias',
+                  }[campExpandedKpi] || ''}
+                  data={detailCamp.dailyBreakdown.map(d => {
+                    const imp = d.impressions || 1;
+                    const clicks = d.clicks || 0;
+                    const val = campExpandedKpi === 'roas' ? (d.spent > 0 ? d.revenue / d.spent : 0)
+                      : campExpandedKpi === 'ctr' ? (imp > 0 ? (clicks / imp) * 100 : 0)
+                      : campExpandedKpi === 'cpc' ? (clicks > 0 ? d.spent / clicks : 0)
+                      : campExpandedKpi === 'cpm' ? (imp > 0 ? (d.spent / imp) * 1000 : 0)
+                      : campExpandedKpi === 'spent' ? d.spent
+                      : d.conversions;
+                    return { label: d.date?.slice(5) || '', value: val };
+                  })}
+                  formatValue={campExpandedKpi === 'roas' ? (v => v.toFixed(2) + 'x')
+                    : campExpandedKpi === 'ctr' ? (v => v.toFixed(1) + '%')
+                    : campExpandedKpi === 'conversions' ? (v => Math.round(v).toString())
+                    : (v => '$' + v.toLocaleString('es-AR', { maximumFractionDigits: 0 }))}
+                  color={campExpandedKpi === 'roas' ? '#6366f1' : campExpandedKpi === 'revenue' || campExpandedKpi === 'conversions' ? '#10b981' : campExpandedKpi === 'spent' ? '#f59e0b' : '#8b5cf6'}
+                />
+              </div>
+            )}
+            {!campExpandedKpi && <div className="mb-3" />}
 
             {detailCamp.adSets && detailCamp.adSets.length > 0 && (
               <div className="grid sm:grid-cols-2 gap-5 mb-5">
