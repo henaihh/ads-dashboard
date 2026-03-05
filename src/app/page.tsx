@@ -478,7 +478,7 @@ export default function Dashboard() {
                   {/* Gender donut */}
                   {detailCamp.demographics.gender && detailCamp.demographics.gender[demographicMode]?.length > 0 && (
                     <DonutChart
-                      key={`gender-${demographicMode}`}
+                      key={`gender-${demographicMode}-${detailCamp.id}`}
                       label={`Género (${demographicMode === 'impressions' ? 'Impresiones' : 'Conversiones'})`}
                       slices={detailCamp.demographics.gender[demographicMode].map(g => ({
                         label: g.label,
@@ -491,7 +491,7 @@ export default function Dashboard() {
                   {/* Age bars */}
                   {detailCamp.demographics.age && detailCamp.demographics.age[demographicMode]?.length > 0 && (
                     <HorizontalBarChart
-                      key={`age-${demographicMode}`}
+                      key={`age-${demographicMode}-${detailCamp.id}`}
                       title={`Edad (${demographicMode === 'impressions' ? 'Impresiones' : 'Conversiones'})`}
                       bars={detailCamp.demographics.age[demographicMode].map(a => ({ label: a.label, value: a.value }))}
                       color="#8b5cf6"
@@ -501,7 +501,7 @@ export default function Dashboard() {
                   {/* Region bars */}
                   {detailCamp.demographics.region && detailCamp.demographics.region[demographicMode]?.length > 0 && (
                     <HorizontalBarChart
-                      key={`region-${demographicMode}`}
+                      key={`region-${demographicMode}-${detailCamp.id}`}
                       title={`Región (${demographicMode === 'impressions' ? 'Impresiones' : 'Conversiones'})`}
                       bars={detailCamp.demographics.region[demographicMode].map(r => ({ label: r.label, value: r.value }))}
                       color="#06b6d4"
