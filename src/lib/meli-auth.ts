@@ -7,7 +7,7 @@ export async function getMeliToken(): Promise<string> {
   
   // Return cached token if still valid
   if (cachedToken && now < tokenExpiry) {
-    return cachedToken;
+    return cachedToken; // This is safe because we check cachedToken is truthy
   }
 
   // Try to use the current token first
@@ -65,7 +65,7 @@ export async function getMeliToken(): Promise<string> {
       MELI_REFRESH_TOKEN: tokenData.refresh_token,
     });
 
-    return cachedToken;
+    return cachedToken!; // We just set it above, so it's safe
   } catch (error) {
     throw new Error(`Failed to refresh MeLi token: ${error}`);
   }
