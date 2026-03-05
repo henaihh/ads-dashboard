@@ -185,6 +185,26 @@ async function fetchMetaCampaigns(dateFrom?: string, dateTo?: string) {
 
 // MeLi campaigns imported from separate file
 import { fetchMeliCampaigns } from './meli';
+
+function getPreviousPeriod(dateFrom: string, dateTo: string): { prevFrom: string; prevTo: string } {
+  const from = new Date(dateFrom);
+  const to = new Date(dateTo);
+  const days = Math.round((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000));
+  const prevTo = new Date(from.getTime() - 24 * 60 * 60 * 1000);
+  const prevFrom = new Date(prevTo.getTime() - days * 24 * 60 * 60 * 1000);
+  return { prevFrom: prevFrom.toISOString().split('T')[0], prevTo: prevTo.toISOString().split('T')[0] };
+}
+
+function computeAggregates(campaigns: any[]) {
+  const totalSpent = campaigns.reduce((s, c) => s + c.spent, 0);
+  const totalRevenue = campaigns.reduce((s, c) => s + c.revenue, 0);
+  const totalConversions = campaigns.reduce((s, c) => s + c.conversions, 0);
+  const avgRoas = totalSpent > 0 ? totalRevenue / totalSpent : 0;
+  const avgCTR = campaigns.length > 0 ? campaigns.reduce((s, c) => s + c.ctr, 0) / campaigns.length : 0;
+  const avgCPC = campaigns.length > 0 ? campaigns.reduce((s, c) => s + c.cpc, 0) / campaigns.length : 0;
+  return { totalSpent, totalRevenue, totalConversions, avgRoas, avgCTR, avgCPC };
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const dateFrom = searchParams.get('dateFrom') || undefined;
@@ -195,8 +215,31 @@ export async function GET(request: Request) {
     fetchMeliCampaigns(dateFrom, dateTo),
   ]);
 
+  const all = [...meta, ...meli];
+
+  // Fetch previous period for comparison
+  const { since, until } = getDateRange(dateFrom, dateTo);
+  const { prevFrom, prevTo } = getPreviousPeriod(since, until);
+  const [prevMeta, prevMeli] = await Promise.all([
+    fetchMetaCampaigns(prevFrom, prevTo),
+    fetchMeliCampaigns(prevFrom, prevTo),
+  ]);
+  const prevAll = [...prevMeta, ...prevMeli];
+
+  const current = computeAggregates(all);
+  const previous = computeAggregates(prevAll);
+
+  // Compute per-platform aggregates too
+  const currentMeta = computeAggregates(meta);
+  const prevMetaAgg = computeAggregates(prevMeta);
+  const currentMeli = computeAggregates(meli);
+  const prevMeliAgg = computeAggregates(prevMeli);
+
   return NextResponse.json({
-    campaigns: [...meta, ...meli],
+    campaigns: all,
+    comparison: { current, previous },
+    comparisonMeta: { current: currentMeta, previous: prevMetaAgg },
+    comparisonMeli: { current: currentMeli, previous: prevMeliAgg },
     sources: {
       meta: { count: meta.length, connected: !!process.env.META_ACCESS_TOKEN },
       meli: { count: meli.length, connected: !!process.env.MELI_ACCESS_TOKEN },

@@ -60,6 +60,10 @@ export default function Dashboard() {
       .catch(() => {});
   }, []);
 
+  const [comparison, setComparison] = useState<any>(null);
+  const [comparisonMeta, setComparisonMeta] = useState<any>(null);
+  const [comparisonMeli, setComparisonMeli] = useState<any>(null);
+
   const fetchCampaigns = useCallback(() => {
     setLoading(true);
     fetch(`/api/campaigns?dateFrom=${dateFrom}&dateTo=${dateTo}`)
@@ -68,6 +72,9 @@ export default function Dashboard() {
         setCampaigns(data.campaigns || []);
         setUpdatedAt(data.updatedAt || '');
         setSources(data.sources || {});
+        setComparison(data.comparison || null);
+        setComparisonMeta(data.comparisonMeta || null);
+        setComparisonMeli(data.comparisonMeli || null);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -89,6 +96,20 @@ export default function Dashboard() {
   const isMeli = tab === 'meli';
   const platform = isMeli ? 'meli' : 'meta';
   const currency = isMeli ? 'ARS' : 'USD';
+
+  // Comparison data based on active tab
+  const comp = tab === 'meta' ? comparisonMeta : tab === 'meli' ? comparisonMeli : comparison;
+  function pctChange(curr: number, prev: number): number | null {
+    if (!comp || prev === 0) return null;
+    return ((curr - prev) / prev) * 100;
+  }
+  // For inverted metrics (lower is better), negate the change for display coloring
+  const roasChange = comp ? pctChange(avgRoas, comp.previous.avgRoas) : null;
+  const ctrChange = comp ? pctChange(avgCTR, comp.previous.avgCTR) : null;
+  const cpcChange = comp ? (comp.previous.avgCPC > 0 ? -((avgCPC - comp.previous.avgCPC) / comp.previous.avgCPC * 100) : null) : null;
+  const spentChange = comp ? pctChange(totalSpent, comp.previous.totalSpent) : null;
+  const revenueChange = comp ? pctChange(totalRevenue, comp.previous.totalRevenue) : null;
+  const convChange = comp ? pctChange(totalConversions, comp.previous.totalConversions) : null;
 
   const recommendations = getRecommendations(filtered);
   const detailCamp = selectedId !== null ? campaigns.find(c => c.id === selectedId) : null;
@@ -182,12 +203,12 @@ export default function Dashboard() {
 
         {/* KPI Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3 mb-6">
-          <MetricCard label="ROAS Total" value={avgRoas.toFixed(2)} suffix="x" signal={getSignal(avgRoas, 'roas', platform)} />
-          <MetricCard label="CTR Prom." value={avgCTR.toFixed(1)} suffix="%" signal={getSignal(avgCTR, 'ctr', platform)} />
-          <MetricCard label="CPC Prom." value={isMeli ? avgCPC.toFixed(0) : avgCPC.toFixed(3)} suffix={` ${currency}`} signal={getSignal(avgCPC, 'cpc', platform)} />
-          <MetricCard label="Gastado" value={formatCurrency(totalSpent, platform)} signal="gray" />
-          <MetricCard label="Ingresos" value={formatCurrency(totalRevenue, platform)} signal={avgRoas >= 2 ? 'green' : avgRoas >= 1 ? 'yellow' : 'red'} />
-          <MetricCard label="Conversiones" value={totalConversions.toString()} signal="gray" />
+          <MetricCard label="ROAS Total" value={avgRoas.toFixed(2)} suffix="x" signal={getSignal(avgRoas, 'roas', platform)} change={roasChange} />
+          <MetricCard label="CTR Prom." value={avgCTR.toFixed(1)} suffix="%" signal={getSignal(avgCTR, 'ctr', platform)} change={ctrChange} />
+          <MetricCard label="CPC Prom." value={isMeli ? avgCPC.toFixed(0) : avgCPC.toFixed(3)} suffix={` ${currency}`} signal={getSignal(avgCPC, 'cpc', platform)} change={cpcChange} />
+          <MetricCard label="Gastado" value={formatCurrency(totalSpent, platform)} signal="gray" change={spentChange} />
+          <MetricCard label="Ingresos" value={formatCurrency(totalRevenue, platform)} signal={avgRoas >= 2 ? 'green' : avgRoas >= 1 ? 'yellow' : 'red'} change={revenueChange} />
+          <MetricCard label="Conversiones" value={totalConversions.toString()} signal="gray" change={convChange} />
         </div>
 
         {/* Campaign List */}
