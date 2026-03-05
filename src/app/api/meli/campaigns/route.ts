@@ -75,6 +75,51 @@ export async function GET() {
           return dCost > 0 ? dRev / dCost : 0;
         });
 
+        // 3. Get product-level ads for this campaign (for bar charts)
+        const adSets: { name: string; spent: number; conversions: number; roas: number; ctr: number }[] = [];
+        try {
+          const adsRes = await fetch(
+            `${BASE}/advertising/advertisers/${userId}/campaigns/${camp.id}/ads?limit=10`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+              cache: 'no-store',
+            }
+          );
+          const adsData = await adsRes.json();
+          const adsList = Array.isArray(adsData) ? adsData : (adsData.results || adsData.paging ? (adsData.results || []) : []);
+
+          for (const ad of adsList.slice(0, 5)) {
+            try {
+              const adMetricsRes = await fetch(
+                `${BASE}/advertising/advertisers/${userId}/ads/${ad.id}/metrics?date_from=${dateFrom}&date_to=${dateTo}`,
+                {
+                  headers: { Authorization: `Bearer ${token}` },
+                  cache: 'no-store',
+                }
+              );
+              const adM = await adMetricsRes.json();
+              const aSpent = adM.cost || adM.total_amount || 0;
+              const aClicks = adM.clicks || 0;
+              const aImpressions = adM.prints || adM.impressions || 0;
+              const aRevenue = adM.revenue || adM.total_value || 0;
+              const aConversions = adM.units_sold || adM.conversions || 0;
+              if (aSpent > 0 || aClicks > 0) {
+                adSets.push({
+                  name: ad.title || ad.item_id || `Ad ${ad.id}`,
+                  spent: aSpent,
+                  conversions: aConversions,
+                  roas: aSpent > 0 ? aRevenue / aSpent : 0,
+                  ctr: aImpressions > 0 ? (aClicks / aImpressions) * 100 : 0,
+                });
+              }
+            } catch {
+              // skip individual ad metrics failures
+            }
+          }
+        } catch {
+          // adSets stays empty if endpoint not available
+        }
+
         campaigns.push({
           id: camp.id,
           platform: 'meli' as const,
@@ -83,19 +128,19 @@ export async function GET() {
           budget: camp.daily_budget || camp.budget || 0,
           spent,
           impressions,
-          reach: impressions, // MeLi doesn't always have reach
+          reach: impressions,
           clicks,
           ctr,
           cpc,
           cpm,
-          frequency: 1.0, // MeLi doesn't provide frequency
+          frequency: 1.0,
           conversions,
           revenue,
           roas,
           costPerResult,
           trend: trend.length > 0 ? trend : [roas],
           trendLabels: dailyArray.map((_: any, i: number) => `D${i + 1}`),
-          adSets: [], // MeLi structure is different, product-level
+          adSets,
         });
       } catch {
         // Skip campaigns that fail to fetch metrics
