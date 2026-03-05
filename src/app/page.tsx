@@ -22,9 +22,14 @@ function getDateRange(preset: DatePreset, customFrom?: string, customTo?: string
   return { dateFrom: from.toISOString().split('T')[0], dateTo: today.toISOString().split('T')[0] };
 }
 
-function formatCurrency(val: number, platform: string) {
+function formatCurrency(val: number, platform: string, currencyMode: 'ARS' | 'USD' = 'ARS', blueRate: number = 1300) {
   if (platform === 'meli') return `$${val.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
-  return `$${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  // Meta values are in USD
+  if (currencyMode === 'ARS') {
+    const arsVal = val * blueRate;
+    return `$${arsVal.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+  }
+  return `US$${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
 /* ─── Glossary ─── */
@@ -50,6 +55,8 @@ export default function Dashboard() {
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [showCustomRange, setShowCustomRange] = useState(false);
+  const [currencyMode, setCurrencyMode] = useState<'ARS' | 'USD'>('ARS');
+  const [blueRate, setBlueRate] = useState<number>(1300);
 
   const { dateFrom, dateTo } = getDateRange(datePreset, customFrom, customTo);
 
@@ -57,6 +64,10 @@ export default function Dashboard() {
     fetch('/api/ai/daily-analysis')
       .then(r => r.json())
       .then(data => { if (data.analysis) setAiAnalysis(data); })
+      .catch(() => {});
+    fetch('/api/exchange-rate')
+      .then(r => r.json())
+      .then(data => { if (data.venta) setBlueRate(data.venta); })
       .catch(() => {});
   }, []);
 
@@ -95,7 +106,7 @@ export default function Dashboard() {
 
   const isMeli = tab === 'meli';
   const platform = isMeli ? 'meli' : 'meta';
-  const currency = isMeli ? 'ARS' : 'USD';
+  const currency = isMeli ? 'ARS' : (currencyMode === 'ARS' ? 'ARS' : 'USD');
 
   // Comparison data based on active tab
   const comp = tab === 'meta' ? comparisonMeta : tab === 'meli' ? comparisonMeli : comparison;
@@ -136,7 +147,23 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* Platform tabs */}
+          {/* Currency toggle + Platform tabs */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 bg-slate-900/60 border border-slate-700/20 rounded-lg p-0.5">
+              {(['ARS', 'USD'] as const).map(c => (
+                <button
+                  key={c}
+                  onClick={() => setCurrencyMode(c)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                    currencyMode === c ? 'bg-indigo-500/20 text-indigo-300' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+            <span className="text-[10px] text-slate-500 hidden sm:block">Blue: ${blueRate.toLocaleString('es-AR')}</span>
+          </div>
           <div className="flex gap-1.5">
             {(['all', 'meta', 'meli'] as Tab[]).map(t => (
               <button
@@ -205,9 +232,9 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3 mb-6">
           <MetricCard label="ROAS Total" value={avgRoas.toFixed(2)} suffix="x" signal={getSignal(avgRoas, 'roas', platform)} change={roasChange} />
           <MetricCard label="CTR Prom." value={avgCTR.toFixed(1)} suffix="%" signal={getSignal(avgCTR, 'ctr', platform)} change={ctrChange} />
-          <MetricCard label="CPC Prom." value={isMeli ? avgCPC.toFixed(0) : avgCPC.toFixed(3)} suffix={` ${currency}`} signal={getSignal(avgCPC, 'cpc', platform)} change={cpcChange} />
-          <MetricCard label="Gastado" value={formatCurrency(totalSpent, platform)} signal="gray" change={spentChange} />
-          <MetricCard label="Ingresos" value={formatCurrency(totalRevenue, platform)} signal={avgRoas >= 2 ? 'green' : avgRoas >= 1 ? 'yellow' : 'red'} change={revenueChange} />
+          <MetricCard label="CPC Prom." value={isMeli ? avgCPC.toFixed(0) : (currencyMode === 'ARS' ? (avgCPC * blueRate).toFixed(0) : avgCPC.toFixed(3))} suffix={` ${currency}`} signal={getSignal(avgCPC, 'cpc', platform)} change={cpcChange} />
+          <MetricCard label="Gastado" value={formatCurrency(totalSpent, platform, currencyMode, blueRate)} signal="gray" change={spentChange} />
+          <MetricCard label="Ingresos" value={formatCurrency(totalRevenue, platform, currencyMode, blueRate)} signal={avgRoas >= 2 ? 'green' : avgRoas >= 1 ? 'yellow' : 'red'} change={revenueChange} />
           <MetricCard label="Conversiones" value={totalConversions.toString()} signal="gray" change={convChange} />
         </div>
 
@@ -249,7 +276,7 @@ export default function Dashboard() {
                     <div className="text-right hidden sm:block">
                       <div className="text-[10px] text-slate-500">Gastado</div>
                       <div className="text-xs font-semibold text-slate-300">
-                        {formatCurrency(c.spent, c.platform)}
+                        {formatCurrency(c.spent, c.platform, currencyMode, blueRate)}
                       </div>
                     </div>
                     <div className="text-right hidden sm:block">
