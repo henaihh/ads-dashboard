@@ -32,16 +32,19 @@ function formatNumber(num: number): string {
   return num.toFixed(0);
 }
 
+function toDisplayCurrencyValue(val: number, platform: string, currencyMode: 'ARS' | 'USD' = 'ARS', blueRate: number = 1300) {
+  // Meta and MeLi APIs return spend/revenue metrics in the ad account currency (ARS for Vicus).
+  // The UI toggle should therefore keep ARS as-is and convert to USD by dividing by the live rate.
+  if (platform === 'meta' && currencyMode === 'USD') return val / blueRate;
+  return val;
+}
+
 function formatCurrency(val: number, platform: string, currencyMode: 'ARS' | 'USD' = 'ARS', blueRate: number = 1300, abbreviated = false) {
-  if (platform === 'meli') {
-    return abbreviated ? `$${formatNumber(val)}` : `$${val.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+  const displayVal = toDisplayCurrencyValue(val, platform, currencyMode, blueRate);
+  if (platform === 'meta' && currencyMode === 'USD') {
+    return abbreviated ? `US$${formatNumber(displayVal)}` : `US$${displayVal.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
   }
-  // Meta values are in USD
-  if (currencyMode === 'ARS') {
-    const arsVal = val * blueRate;
-    return abbreviated ? `$${formatNumber(arsVal)}` : `$${arsVal.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
-  }
-  return abbreviated ? `US$${formatNumber(val)}` : `US$${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  return abbreviated ? `$${formatNumber(displayVal)}` : `$${displayVal.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
 }
 
 /* ─── Glossary ─── */
@@ -142,6 +145,7 @@ export default function Dashboard() {
   const isMeli = tab === 'meli';
   const platform = isMeli ? 'meli' : 'meta';
   const currency = isMeli ? 'ARS' : (currencyMode === 'ARS' ? 'ARS' : 'USD');
+  const signalPlatform = platform === 'meta' ? 'meli' : platform; // Meta values come in ARS, so evaluate currency metrics against ARS thresholds.
 
   // Comparison data based on active tab
   const comp = tab === 'meta' ? comparisonMeta : tab === 'meli' ? comparisonMeli : comparison;
@@ -285,7 +289,7 @@ export default function Dashboard() {
           {([
             { key: 'roas', label: 'ROAS Total', value: avgRoas.toFixed(2), suffix: 'x', signal: getSignal(avgRoas, 'roas', platform), change: roasChange, fullValue: undefined },
             { key: 'ctr', label: 'CTR Prom.', value: avgCTR.toFixed(1), suffix: '%', signal: getSignal(avgCTR, 'ctr', platform), change: ctrChange, fullValue: undefined },
-            { key: 'cpc', label: 'CPC Prom.', value: formatCurrency(avgCPC, platform, currencyMode, blueRate, true).replace('$', ''), suffix: ` ${currency}`, signal: getSignal(avgCPC, 'cpc', platform), change: cpcChange, fullValue: formatCurrency(avgCPC, platform, currencyMode, blueRate, false) },
+            { key: 'cpc', label: 'CPC Prom.', value: formatCurrency(avgCPC, platform, currencyMode, blueRate, true).replace('US$', '').replace('$', ''), suffix: ` ${currency}`, signal: getSignal(avgCPC, 'cpc', signalPlatform), change: cpcChange, fullValue: formatCurrency(avgCPC, platform, currencyMode, blueRate, false) },
             { key: 'spent', label: 'Gastado', value: formatCurrency(totalSpent, platform, currencyMode, blueRate, true), suffix: '', signal: 'gray' as Signal, change: spentChange, fullValue: formatCurrency(totalSpent, platform, currencyMode, blueRate, false) },
             { key: 'revenue', label: 'Ingresos', value: formatCurrency(totalRevenue, platform, currencyMode, blueRate, true), suffix: '', signal: (avgRoas >= 2 ? 'green' : avgRoas >= 1 ? 'yellow' : 'red') as Signal, change: revenueChange, fullValue: formatCurrency(totalRevenue, platform, currencyMode, blueRate, false) },
             { key: 'conversions', label: 'Conversiones', value: totalConversions.toString(), suffix: '', signal: 'gray' as Signal, change: convChange, fullValue: undefined },
@@ -397,8 +401,8 @@ export default function Dashboard() {
               {([
                 { key: 'roas', label: 'ROAS', value: detailCamp.roas.toFixed(2), suffix: 'x', signal: getSignal(detailCamp.roas, 'roas', detailCamp.platform), spark: detailCamp.trend, fullValue: undefined },
                 { key: 'ctr', label: 'CTR', value: detailCamp.ctr.toFixed(1), suffix: '%', signal: getSignal(detailCamp.ctr, 'ctr', detailCamp.platform), fullValue: undefined },
-                { key: 'cpc', label: 'CPC', value: detailCamp.platform === 'meli' ? detailCamp.cpc.toFixed(0) : detailCamp.cpc.toFixed(3), suffix: ` ${detailCamp.platform === 'meli' ? 'ARS' : 'USD'}`, signal: getSignal(detailCamp.cpc, 'cpc', detailCamp.platform), fullValue: undefined },
-                { key: 'cpm', label: 'CPM', value: detailCamp.cpm.toFixed(2), suffix: '', signal: getSignal(detailCamp.cpm, 'cpm', detailCamp.platform), fullValue: undefined },
+                { key: 'cpc', label: 'CPC', value: formatCurrency(detailCamp.cpc, detailCamp.platform, currencyMode, blueRate, true).replace('US$', '').replace('$', ''), suffix: ` ${detailCamp.platform === 'meta' && currencyMode === 'USD' ? 'USD' : 'ARS'}`, signal: getSignal(detailCamp.cpc, 'cpc', detailCamp.platform === 'meta' ? 'meli' : detailCamp.platform), fullValue: formatCurrency(detailCamp.cpc, detailCamp.platform, currencyMode, blueRate, false) },
+                { key: 'cpm', label: 'CPM', value: formatCurrency(detailCamp.cpm, detailCamp.platform, currencyMode, blueRate, true), suffix: '', signal: getSignal(detailCamp.cpm, 'cpm', detailCamp.platform === 'meta' ? 'meli' : detailCamp.platform), fullValue: formatCurrency(detailCamp.cpm, detailCamp.platform, currencyMode, blueRate, false) },
                 { key: 'spent', label: 'Gastado', value: formatCurrency(detailCamp.spent, detailCamp.platform, currencyMode, blueRate, true), suffix: '', signal: 'gray' as Signal, fullValue: formatCurrency(detailCamp.spent, detailCamp.platform, currencyMode, blueRate, false) },
                 { key: 'conversions', label: 'Conv.', value: detailCamp.conversions.toString(), suffix: '', signal: 'gray' as Signal, fullValue: undefined },
               ] as const).map(kpi => (
