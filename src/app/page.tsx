@@ -15,12 +15,16 @@ import { KpiSkeleton, CampaignSkeleton, LoadingOverlay } from '@/components/dash
 import { ChangeLogModal } from '@/components/dashboard/ChangeLogModal';
 
 type Tab = 'all' | 'meta' | 'meli';
-type DatePreset = '7d' | '14d' | '30d' | '90d' | 'custom';
+type DatePreset = '7d' | '14d' | '30d' | '90d' | 'month' | 'custom';
 
 function getDateRange(preset: DatePreset, customFrom?: string, customTo?: string): { dateFrom: string; dateTo: string } {
   if (preset === 'custom' && customFrom && customTo) return { dateFrom: customFrom, dateTo: customTo };
-  const days = preset === '14d' ? 14 : preset === '30d' ? 30 : preset === '90d' ? 90 : 7;
   const today = new Date();
+  if (preset === 'month') {
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    return { dateFrom: firstDayOfMonth.toISOString().split('T')[0], dateTo: today.toISOString().split('T')[0] };
+  }
+  const days = preset === '14d' ? 14 : preset === '30d' ? 30 : preset === '90d' ? 90 : 7;
   const from = new Date(today.getTime() - days * 24 * 60 * 60 * 1000);
   return { dateFrom: from.toISOString().split('T')[0], dateTo: today.toISOString().split('T')[0] };
 }
@@ -220,7 +224,7 @@ export default function Dashboard() {
 
         {/* Date Range Filter */}
         <div className="flex flex-wrap items-center gap-2 mb-5">
-          {(['7d', '14d', '30d', '90d'] as DatePreset[]).map(p => (
+          {(['7d', '14d', '30d', '90d', 'month'] as DatePreset[]).map(p => (
             <button
               key={p}
               onClick={() => { setDatePreset(p); setShowCustomRange(false); }}
@@ -230,7 +234,7 @@ export default function Dashboard() {
                   : 'border-slate-700/20 bg-slate-900/50 text-slate-400 hover:text-slate-300 hover:border-slate-600/30'
               }`}
             >
-              {p === '7d' ? '7 días' : p === '14d' ? '14 días' : p === '30d' ? '30 días' : '90 días'}
+              {p === '7d' ? '7 días' : p === '14d' ? '14 días' : p === '30d' ? '30 días' : p === '90d' ? '90 días' : 'Este Mes'}
             </button>
           ))}
           <button
