@@ -14,7 +14,7 @@ import { LineChart } from '@/components/dashboard/LineChart';
 import { KpiSkeleton, CampaignSkeleton, LoadingOverlay } from '@/components/dashboard/Skeleton';
 import { ChangeLogModal } from '@/components/dashboard/ChangeLogModal';
 
-type Tab = 'all' | 'meta' | 'meli';
+type Tab = 'all' | 'meta' | 'meli' | 'google';
 type DatePreset = '7d' | '14d' | '30d' | '90d' | 'month' | 'custom';
 
 function getDateRange(preset: DatePreset, customFrom?: string, customTo?: string): { dateFrom: string; dateTo: string } {
@@ -36,18 +36,22 @@ function formatNumber(num: number): string {
 }
 
 function toDisplayCurrencyValue(val: number, platform: string, currencyMode: 'ARS' | 'USD' = 'ARS', blueRate: number = 1300) {
-  // Meta and MeLi APIs return spend/revenue metrics in the ad account currency (ARS for Vicus).
-  // The UI toggle should therefore keep ARS as-is and convert to USD by dividing by the live rate.
-  if (platform === 'meta' && currencyMode === 'USD') return val / blueRate;
+  // Ad APIs return spend/revenue metrics in each ad account currency (ARS for Vicus accounts).
+  // The UI toggle keeps ARS as-is and converts Meta/Google to USD by dividing by the live blue rate.
+  if ((platform === 'meta' || platform === 'google') && currencyMode === 'USD') return val / blueRate;
   return val;
 }
 
 function formatCurrency(val: number, platform: string, currencyMode: 'ARS' | 'USD' = 'ARS', blueRate: number = 1300, abbreviated = false) {
   const displayVal = toDisplayCurrencyValue(val, platform, currencyMode, blueRate);
-  if (platform === 'meta' && currencyMode === 'USD') {
+  if ((platform === 'meta' || platform === 'google') && currencyMode === 'USD') {
     return abbreviated ? `US$${formatNumber(displayVal)}` : `US$${displayVal.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
   }
   return abbreviated ? `$${formatNumber(displayVal)}` : `$${displayVal.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+}
+
+function platformName(platform: string) {
+  return platform === 'meta' ? 'Meta' : platform === 'google' ? 'Google' : 'MeLi';
 }
 
 /* ─── Glossary ─── */
@@ -106,6 +110,7 @@ export default function Dashboard() {
   const [comparison, setComparison] = useState<any>(null);
   const [comparisonMeta, setComparisonMeta] = useState<any>(null);
   const [comparisonMeli, setComparisonMeli] = useState<any>(null);
+  const [comparisonGoogle, setComparisonGoogle] = useState<any>(null);
 
   const fetchCampaigns = useCallback(() => {
     setLoading(true);
@@ -118,6 +123,7 @@ export default function Dashboard() {
         setComparison(data.comparison || null);
         setComparisonMeta(data.comparisonMeta || null);
         setComparisonMeli(data.comparisonMeli || null);
+        setComparisonGoogle(data.comparisonGoogle || null);
         setDailyMetrics(data.dailyMetrics || []);
         setLoading(false);
         setInitialLoad(false);
@@ -145,13 +151,12 @@ export default function Dashboard() {
   const avgCTR = filtered.length > 0 ? filtered.reduce((s, c) => s + c.ctr, 0) / filtered.length : 0;
   const avgCPC = filtered.length > 0 ? filtered.reduce((s, c) => s + c.cpc, 0) / filtered.length : 0;
 
-  const isMeli = tab === 'meli';
-  const platform = isMeli ? 'meli' : 'meta';
-  const currency = isMeli ? 'ARS' : (currencyMode === 'ARS' ? 'ARS' : 'USD');
+  const platform = tab === 'meli' ? 'meli' : tab === 'google' ? 'google' : 'meta';
+  const currency = tab === 'meli' ? 'ARS' : (currencyMode === 'ARS' ? 'ARS' : 'USD');
   const signalPlatform = platform === 'meta' ? 'meli' : platform; // Meta values come in ARS, so evaluate currency metrics against ARS thresholds.
 
   // Comparison data based on active tab
-  const comp = tab === 'meta' ? comparisonMeta : tab === 'meli' ? comparisonMeli : comparison;
+  const comp = tab === 'meta' ? comparisonMeta : tab === 'meli' ? comparisonMeli : tab === 'google' ? comparisonGoogle : comparison;
   function pctChange(curr: number, prev: number): number | null {
     if (!comp || prev === 0) return null;
     return ((curr - prev) / prev) * 100;
@@ -179,9 +184,11 @@ export default function Dashboard() {
               {loading ? 'Cargando datos...' : (
                 <>
                   {sources.meta?.connected && <span className="text-emerald-400">Meta ✓</span>}
-                  {sources.meta?.connected && sources.meli?.connected && ' · '}
+                  {sources.meta?.connected && (sources.meli?.connected || sources.google?.connected) && ' · '}
                   {sources.meli?.connected && <span className="text-emerald-400">MeLi ✓</span>}
-                  {!sources.meta?.connected && !sources.meli?.connected && 'Sin conexión a plataformas'}
+                  {sources.meli?.connected && sources.google?.connected && ' · '}
+                  {sources.google?.connected && <span className="text-emerald-400">Google ✓</span>}
+                  {!sources.meta?.connected && !sources.meli?.connected && !sources.google?.connected && 'Sin conexión a plataformas'}
                   {updatedAt && <span className="text-slate-600"> · {new Date(updatedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</span>}
                 </>
               )}
@@ -206,7 +213,7 @@ export default function Dashboard() {
             <span className="text-[10px] text-slate-500 hidden sm:block">Blue: ${blueRate.toLocaleString('es-AR')}</span>
           </div>
           <div className="flex gap-1.5">
-            {(['all', 'meta', 'meli'] as Tab[]).map(t => (
+            {(['all', 'meta', 'meli', 'google'] as Tab[]).map(t => (
               <button
                 key={t}
                 onClick={() => { setTab(t); setSelectedId(null); }}
@@ -216,7 +223,7 @@ export default function Dashboard() {
                     : 'border-slate-700/20 bg-slate-900/50 text-slate-400 hover:text-slate-300 hover:border-slate-600/30'
                 }`}
               >
-                {t === 'all' ? 'Todas' : t === 'meta' ? 'Meta Ads' : 'MercadoLibre'}
+                {t === 'all' ? 'Todas' : t === 'meta' ? 'Meta Ads' : t === 'google' ? 'Google Ads' : 'MercadoLibre'}
               </button>
             ))}
           </div>
@@ -358,7 +365,7 @@ export default function Dashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-slate-200 truncate">{c.name}</div>
                       <div className="text-[11px] text-slate-500">
-                        {c.platform === 'meta' ? 'Meta' : 'MeLi'} · {c.status === 'active' ? '🟢 Activa' : '⏸ Pausada'}
+                        {platformName(c.platform)} · {c.status === 'active' ? '🟢 Activa' : '⏸ Pausada'}
                       </div>
                     </div>
 
@@ -403,7 +410,7 @@ export default function Dashboard() {
               {([
                 { key: 'roas', label: 'ROAS', value: detailCamp.roas.toFixed(2), suffix: 'x', signal: getSignal(detailCamp.roas, 'roas', detailCamp.platform), spark: detailCamp.trend, fullValue: undefined },
                 { key: 'ctr', label: 'CTR', value: detailCamp.ctr.toFixed(1), suffix: '%', signal: getSignal(detailCamp.ctr, 'ctr', detailCamp.platform), fullValue: undefined },
-                { key: 'cpc', label: 'CPC', value: formatCurrency(detailCamp.cpc, detailCamp.platform, currencyMode, blueRate, true).replace('US$', '').replace('$', ''), suffix: ` ${detailCamp.platform === 'meta' && currencyMode === 'USD' ? 'USD' : 'ARS'}`, signal: getSignal(detailCamp.cpc, 'cpc', detailCamp.platform === 'meta' ? 'meli' : detailCamp.platform), fullValue: formatCurrency(detailCamp.cpc, detailCamp.platform, currencyMode, blueRate, false) },
+                { key: 'cpc', label: 'CPC', value: formatCurrency(detailCamp.cpc, detailCamp.platform, currencyMode, blueRate, true).replace('US$', '').replace('$', ''), suffix: ` ${(detailCamp.platform === 'meta' || detailCamp.platform === 'google') && currencyMode === 'USD' ? 'USD' : 'ARS'}`, signal: getSignal(detailCamp.cpc, 'cpc', detailCamp.platform === 'meta' ? 'meli' : detailCamp.platform), fullValue: formatCurrency(detailCamp.cpc, detailCamp.platform, currencyMode, blueRate, false) },
                 { key: 'cpm', label: 'CPM', value: formatCurrency(detailCamp.cpm, detailCamp.platform, currencyMode, blueRate, true), suffix: '', signal: getSignal(detailCamp.cpm, 'cpm', detailCamp.platform === 'meta' ? 'meli' : detailCamp.platform), fullValue: formatCurrency(detailCamp.cpm, detailCamp.platform, currencyMode, blueRate, false) },
                 { key: 'spent', label: 'Gastado', value: formatCurrency(detailCamp.spent, detailCamp.platform, currencyMode, blueRate, true), suffix: '', signal: 'gray' as Signal, fullValue: formatCurrency(detailCamp.spent, detailCamp.platform, currencyMode, blueRate, false) },
                 { key: 'conversions', label: 'Conv.', value: detailCamp.conversions.toString(), suffix: '', signal: 'gray' as Signal, fullValue: undefined },
@@ -454,8 +461,8 @@ export default function Dashboard() {
 
             {detailCamp.adSets && detailCamp.adSets.length > 0 && (
               <div className="grid sm:grid-cols-2 gap-5 mb-5">
-                <BarChart items={detailCamp.adSets} valueKey="roas" label={detailCamp.platform === 'meli' ? 'ROAS por Producto' : 'ROAS por Ad Set'} platform={detailCamp.platform} />
-                <BarChart items={detailCamp.adSets} valueKey="ctr" label={detailCamp.platform === 'meli' ? 'CTR por Producto' : 'CTR por Ad Set'} platform={detailCamp.platform} />
+                <BarChart items={detailCamp.adSets} valueKey="roas" label={detailCamp.platform === 'meli' ? 'ROAS por Producto' : detailCamp.platform === 'google' ? 'ROAS por Grupo de anuncios' : 'ROAS por Ad Set'} platform={detailCamp.platform} />
+                <BarChart items={detailCamp.adSets} valueKey="ctr" label={detailCamp.platform === 'meli' ? 'CTR por Producto' : detailCamp.platform === 'google' ? 'CTR por Grupo de anuncios' : 'CTR por Ad Set'} platform={detailCamp.platform} />
               </div>
             )}
 
@@ -516,11 +523,11 @@ export default function Dashboard() {
                   )}
                 </div>
               </div>
-            ) : detailCamp.platform === 'meli' ? (
+            ) : detailCamp.platform === 'meli' || detailCamp.platform === 'google' ? (
               <div className="mt-5 pt-5 border-t border-slate-700/15">
                 <div className="text-xs text-slate-500 flex items-center gap-2">
                   <span>🎯</span>
-                  <span>MercadoLibre no proporciona datos demográficos de audiencia a través de su API.</span>
+                  <span>{detailCamp.platform === 'google' ? 'Google Ads' : 'MercadoLibre'} no proporciona datos demográficos de audiencia en esta vista.</span>
                 </div>
               </div>
             ) : null}

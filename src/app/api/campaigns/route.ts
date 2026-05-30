@@ -220,8 +220,9 @@ async function fetchMetaCampaigns(dateFrom?: string, dateTo?: string) {
   }
 }
 
-// MeLi campaigns imported from separate file
+// Platform campaigns imported from separate files
 import { fetchMeliCampaigns } from './meli';
+import { fetchGoogleCampaigns } from './google';
 
 function getPreviousPeriod(dateFrom: string, dateTo: string): { prevFrom: string; prevTo: string } {
   const from = new Date(dateFrom);
@@ -247,21 +248,23 @@ export async function GET(request: Request) {
   const dateFrom = searchParams.get('dateFrom') || undefined;
   const dateTo = searchParams.get('dateTo') || undefined;
 
-  const [meta, meli] = await Promise.all([
+  const [meta, meli, google] = await Promise.all([
     fetchMetaCampaigns(dateFrom, dateTo),
     fetchMeliCampaigns(dateFrom, dateTo),
+    fetchGoogleCampaigns(dateFrom, dateTo),
   ]);
 
-  const all = [...meta, ...meli];
+  const all = [...meta, ...meli, ...google];
 
   // Fetch previous period for comparison
   const { since, until } = getDateRange(dateFrom, dateTo);
   const { prevFrom, prevTo } = getPreviousPeriod(since, until);
-  const [prevMeta, prevMeli] = await Promise.all([
+  const [prevMeta, prevMeli, prevGoogle] = await Promise.all([
     fetchMetaCampaigns(prevFrom, prevTo),
     fetchMeliCampaigns(prevFrom, prevTo),
+    fetchGoogleCampaigns(prevFrom, prevTo),
   ]);
-  const prevAll = [...prevMeta, ...prevMeli];
+  const prevAll = [...prevMeta, ...prevMeli, ...prevGoogle];
 
   const current = computeAggregates(all);
   const previous = computeAggregates(prevAll);
@@ -271,6 +274,8 @@ export async function GET(request: Request) {
   const prevMetaAgg = computeAggregates(prevMeta);
   const currentMeli = computeAggregates(meli);
   const prevMeliAgg = computeAggregates(prevMeli);
+  const currentGoogle = computeAggregates(google);
+  const prevGoogleAgg = computeAggregates(prevGoogle);
 
   // Aggregate daily metrics across all campaigns
   // Meta daily data is already fetched with time_increment=1
@@ -307,9 +312,11 @@ export async function GET(request: Request) {
     comparison: { current, previous },
     comparisonMeta: { current: currentMeta, previous: prevMetaAgg },
     comparisonMeli: { current: currentMeli, previous: prevMeliAgg },
+    comparisonGoogle: { current: currentGoogle, previous: prevGoogleAgg },
     sources: {
       meta: { count: meta.length, connected: !!process.env.META_ACCESS_TOKEN },
       meli: { count: meli.length, connected: !!process.env.MELI_ACCESS_TOKEN },
+      google: { count: google.length, connected: !!process.env.GOOGLE_ADS_REFRESH_TOKEN },
     },
     updatedAt: new Date().toISOString(),
   });

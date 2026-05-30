@@ -1,4 +1,4 @@
-export type Platform = 'meta' | 'meli';
+export type Platform = 'meta' | 'meli' | 'google';
 
 export interface AdSet {
   name: string;

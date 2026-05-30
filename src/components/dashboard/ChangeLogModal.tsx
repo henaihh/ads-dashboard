@@ -107,7 +107,7 @@ export function ChangeLogModal({ isOpen, onClose, campaigns, onChangeLogged }: C
               <option value="">Selecciona una campaña</option>
               {campaigns.map(campaign => (
                 <option key={campaign.id} value={campaign.id}>
-                  {campaign.name} ({campaign.platform === 'meta' ? 'Meta' : 'MeLi'})
+                  {campaign.name} ({campaign.platform === 'meta' ? 'Meta' : campaign.platform === 'google' ? 'Google' : 'MeLi'})
                 </option>
               ))}
             </select>

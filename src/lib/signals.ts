@@ -24,8 +24,17 @@ const MELI_THRESHOLDS: Record<string, Threshold> = {
   costPerResult: { great: 200, ok: 500, inverted: true },
 };
 
+const GOOGLE_THRESHOLDS: Record<string, Threshold> = {
+  roas: { great: 4, ok: 2 },
+  ctr: { great: 2.5, ok: 1.5 },
+  cpc: { great: 300, ok: 600, inverted: true },
+  frequency: { great: 1.5, ok: 2.5, inverted: true },
+  cpm: { great: 6000, ok: 12000, inverted: true },
+  costPerResult: { great: 10000, ok: 25000, inverted: true },
+};
+
 export function getSignal(value: number, metric: string, platform: string = 'meta'): Signal {
-  const thresholds = platform === 'meli' ? MELI_THRESHOLDS : META_THRESHOLDS;
+  const thresholds = platform === 'meli' ? MELI_THRESHOLDS : platform === 'google' ? GOOGLE_THRESHOLDS : META_THRESHOLDS;
   const t = thresholds[metric];
   if (!t) return 'gray';
 

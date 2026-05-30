@@ -39,7 +39,7 @@ export interface CampaignContext {
 function buildContext(c: Campaign): CampaignContext {
   return {
     name: c.name,
-    platform: c.platform === 'meli' ? 'MercadoLibre' : 'Meta Ads',
+    platform: c.platform === 'meli' ? 'MercadoLibre' : c.platform === 'google' ? 'Google Ads' : 'Meta Ads',
     roas: c.roas,
     ctr: c.ctr,
     cpc: c.cpc,
@@ -56,7 +56,7 @@ function buildContext(c: Campaign): CampaignContext {
 
 export function getDetailedRecommendations(campaigns: Campaign[]): CampaignRecommendation[] {
   const recs: CampaignRecommendation[] = [];
-  const p = (c: Campaign) => c.platform === 'meli' ? 'MercadoLibre' : 'Meta';
+  const p = (c: Campaign) => c.platform === 'meli' ? 'MercadoLibre' : c.platform === 'google' ? 'Google Ads' : 'Meta';
   const isMeli = (c: Campaign) => c.platform === 'meli';
 
   campaigns.forEach(c => {
