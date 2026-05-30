@@ -18,7 +18,10 @@ function getDateRange(dateFrom?: string, dateTo?: string): { since: string; unti
 }
 
 function googleDate(date: string) {
-  return date.replace(/-/g, '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error(`Invalid Google Ads date: ${date}`);
+  }
+  return date;
 }
 
 function spanishDayLabel(dateString: string) {
